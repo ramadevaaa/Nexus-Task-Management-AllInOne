@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NEXUS — Mission Control</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- SETTINGS PANEL -->
+  <div class="settings-overlay" id="settingsOverlay"></div>
+  <aside class="settings-panel" id="settingsPanel">
+    <div class="settings-header">
+      <span class="settings-title">SYSTEM CONFIG</span>
+      <button class="btn-icon" id="closeSettings" aria-label="Close settings">✕</button>
+    </div>
+    <div class="settings-body">
+      <div class="setting-group">
+        <label class="setting-label">OPERATOR NAME</label>
+        <input type="text" id="operatorName" class="setting-input" placeholder="Enter your name" />
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">FOCUS DURATION (min)</label>
+        <input type="number" id="pomoDuration" class="setting-input" min="1" max="120" value="25" />
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">BREAK DURATION (min)</label>
+        <input type="number" id="breakDuration" class="setting-input" min="1" max="60" value="5" />
+      </div>
+      <div class="setting-group">
+        <label class="setting-label">INTERFACE MODE</label>
+        <div class="theme-toggle-row">
+          <span>DARK</span>
+          <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+            <span class="toggle-knob"></span>
+          </button>
+          <span>LIGHT</span>
+        </div>
+      </div>
+      <button class="btn-save-settings" id="saveSettings">APPLY CHANGES</button>
+    </div>
+  </aside>
+
+  <!-- MAIN APP -->
+  <div class="app-shell">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="logo">
+          <span class="logo-icon">⬡</span>
+          <span class="logo-text">NEXUS</span>
+        </div>
+        <div class="status-dot-wrap">
+          <span class="status-dot"></span>
+          <span class="status-label">ONLINE</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-time" id="topbarTime">--:--</div>
+        <button class="btn-icon settings-btn" id="openSettings" aria-label="Open settings">⚙</button>
+      </div>
+    </header>
+
+    <!-- MAIN GRID -->
+    <main class="main-grid">
+
+      <!-- LEFT COLUMN -->
+      <section class="col-left">
+
+        <!-- GREETING CARD -->
+        <div class="card greeting-card">
+          <div class="card-scan-line"></div>
+          <div class="greeting-top">
+            <div class="greeting-date" id="greetingDate">LOADING...</div>
+            <div class="greeting-badge" id="greetingBadge">DAY</div>
+          </div>
+          <div class="greeting-main">
+            <div class="greeting-text" id="greetingText">GOOD MORNING</div>
+            <div class="greeting-name" id="greetingName">OPERATOR</div>
+          </div>
+          <div class="greeting-clock" id="greetingClock">00:00:00</div>
+          <div class="greeting-progress-bar">
+            <div class="greeting-progress-fill" id="dayProgress"></div>
+          </div>
+          <div class="greeting-progress-label" id="dayProgressLabel">Day progress</div>
+        </div>
+
+        <!-- FOCUS TIMER CARD -->
+        <div class="card timer-card">
+          <div class="card-label">FOCUS PROTOCOL</div>
+          <div class="timer-mode-tabs">
+            <button class="timer-tab active" data-mode="focus">FOCUS</button>
+            <button class="timer-tab" data-mode="break">BREAK</button>
+          </div>
+          <div class="timer-ring-wrap">
+            <svg class="timer-ring" viewBox="0 0 200 200">
+              <circle class="ring-bg" cx="100" cy="100" r="88" />
+              <circle class="ring-progress" id="ringProgress" cx="100" cy="100" r="88"
+                stroke-dasharray="553" stroke-dashoffset="0" />
+            </svg>
+            <div class="timer-display">
+              <div class="timer-digits" id="timerDigits">25:00</div>
+              <div class="timer-status" id="timerStatus">STANDBY</div>
+            </div>
+          </div>
+          <div class="timer-controls">
+            <button class="btn-timer btn-start" id="timerStart">▶ START</button>
+            <button class="btn-timer btn-reset" id="timerReset">↺ RESET</button>
+          </div>
+          <div class="timer-sessions">
+            <span class="session-label">SESSIONS TODAY</span>
+            <div class="session-dots" id="sessionDots"></div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- CENTER COLUMN -->
+      <section class="col-center">
+
+        <!-- TASK MISSION CARD -->
+        <div class="card tasks-card">
+          <div class="card-header-row">
+            <div class="card-label">MISSION QUEUE</div>
+            <div class="task-stats">
+              <span id="tasksDone">0</span>/<span id="tasksTotal">0</span>
+              <span class="task-stats-label">COMPLETE</span>
+            </div>
+          </div>
+
+          <!-- ADD TASK -->
+          <div class="task-input-row">
+            <div class="task-input-wrap">
+              <span class="task-input-icon">+</span>
+              <input type="text" id="taskInput" class="task-input" placeholder="New mission objective..." maxlength="120" />
+              <select id="taskPriority" class="task-priority-select" aria-label="Priority">
+                <option value="low">LOW</option>
+                <option value="mid" selected>MID</option>
+                <option value="high">HIGH</option>
+              </select>
+            </div>
+            <button class="btn-add-task" id="addTaskBtn" aria-label="Add task">DEPLOY</button>
+          </div>
+
+          <!-- FILTER TABS -->
+          <div class="task-filters">
+            <button class="filter-btn active" data-filter="all">ALL</button>
+            <button class="filter-btn" data-filter="active">ACTIVE</button>
+            <button class="filter-btn" data-filter="done">DONE</button>
+            <button class="filter-btn" data-filter="high">⚡ HIGH</button>
+          </div>
+
+          <!-- TASK LIST -->
+          <ul class="task-list" id="taskList" aria-label="Task list">
+            <!-- tasks injected by JS -->
+          </ul>
+
+          <div class="task-empty" id="taskEmpty">
+            <div class="empty-icon">◎</div>
+            <div class="empty-text">NO ACTIVE MISSIONS</div>
+          </div>
+
+          <div class="task-footer">
+            <button class="btn-clear-done" id="clearDone">PURGE COMPLETED</button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- RIGHT COLUMN -->
+      <section class="col-right">
+
+        <!-- QUICK LINKS CARD -->
+        <div class="card links-card">
+          <div class="card-label">QUICK PORTALS</div>
+          <div class="links-grid" id="linksGrid">
+            <!-- links injected by JS -->
+          </div>
+          <button class="btn-add-link" id="addLinkBtn">+ ADD PORTAL</button>
+        </div>
+
+        <!-- SYSTEM STATS CARD -->
+        <div class="card stats-card">
+          <div class="card-label">MISSION STATS</div>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-value" id="statTotal">0</div>
+              <div class="stat-key">TOTAL TASKS</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="statCompleted">0</div>
+              <div class="stat-key">COMPLETED</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="statSessions">0</div>
+              <div class="stat-key">FOCUS SESSIONS</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value" id="statStreak">0</div>
+              <div class="stat-key">DAY STREAK</div>
+            </div>
+          </div>
+          <div class="completion-bar-wrap">
+            <div class="completion-bar-label">
+              <span>COMPLETION RATE</span>
+              <span id="completionPct">0%</span>
+            </div>
+            <div class="completion-bar">
+              <div class="completion-fill" id="completionFill"></div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ADD LINK MODAL -->
+  <div class="modal-overlay" id="linkModalOverlay">
+    <div class="modal" id="linkModal">
+      <div class="modal-header">
+        <span>NEW PORTAL</span>
+        <button class="btn-icon" id="closeLinkModal">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="linkName" class="modal-input" placeholder="Portal name (e.g. GitHub)" maxlength="30" />
+        <input type="url" id="linkUrl" class="modal-input" placeholder="https://..." />
+        <input type="text" id="linkIcon" class="modal-input" placeholder="Emoji icon (e.g. 🐙)" maxlength="4" />
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" id="cancelLinkModal">CANCEL</button>
+        <button class="btn-modal-confirm" id="confirmLinkModal">LAUNCH</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- EDIT TASK MODAL -->
+  <div class="modal-overlay" id="editTaskOverlay">
+    <div class="modal" id="editTaskModal">
+      <div class="modal-header">
+        <span>EDIT MISSION</span>
+        <button class="btn-icon" id="closeEditTask">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="editTaskInput" class="modal-input" placeholder="Mission objective..." maxlength="120" />
+        <select id="editTaskPriority" class="modal-input modal-select">
+          <option value="low">LOW PRIORITY</option>
+          <option value="mid">MID PRIORITY</option>
+          <option value="high">HIGH PRIORITY</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-modal-cancel" id="cancelEditTask">CANCEL</button>
+        <button class="btn-modal-confirm" id="confirmEditTask">UPDATE</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
