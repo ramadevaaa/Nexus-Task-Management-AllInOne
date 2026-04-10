@@ -88,22 +88,24 @@ export default function SettingsPage() {
         {/* ── Account ── */}
         <Section icon={User} title="Account">
           {currentUser && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              {currentUser.photoURL ? (
-                <img src={currentUser.photoURL} alt="avatar" style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
-              ) : (
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700, color: '#fff' }}>
-                  {currentUser.email?.charAt(0).toUpperCase()}
+            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-5">
+              <div className="flex items-center gap-4 flex-1 w-full translate-x-1 sm:translate-x-0">
+                {currentUser.photoURL ? (
+                  <img src={currentUser.photoURL} alt="avatar" style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
+                ) : (
+                  <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 700, color: '#fff' }}>
+                    {currentUser.email?.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.2px' }}>{currentUser.displayName || 'User'}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '1px' }} className="truncate max-w-[180px] sm:max-w-none">{currentUser.email}</p>
                 </div>
-              )}
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-main)' }}>{currentUser.displayName || 'User'}</p>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>{currentUser.email}</p>
               </div>
               <button
                 onClick={logout}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl transition-all"
-                style={{ fontSize: '12px', fontWeight: 700, color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.05)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl transition-all w-full sm:w-auto mt-2 sm:mt-0"
+                style={{ fontSize: '13px', fontWeight: 800, color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', cursor: 'pointer', fontFamily: 'inherit' }}>
                 <LogOut size={14} /> Sign out
               </button>
             </div>

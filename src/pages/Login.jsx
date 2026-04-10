@@ -42,15 +42,15 @@ export default function Login() {
 
         {/* Logo */}
         <div style={{
-          width: '64px', height: '64px', borderRadius: '20px',
-          background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+          width: '72px', height: '72px', borderRadius: '22px',
+          background: 'linear-gradient(145deg, #0f172a 0%, #171e2e 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 8px 24px rgba(59,130,246,0.4)',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.4), 0 0 20px rgba(99,102,241,0.1)',
+          border: '1px solid rgba(255,255,255,0.06)',
           marginBottom: '24px',
-          fontSize: '26px', fontWeight: 800, color: '#fff',
-          letterSpacing: '-0.5px'
+          padding: '12px'
         }}>
-          N
+          <img src="/favicon.svg" alt="Nexus Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </div>
 
         <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px', letterSpacing: '-0.5px' }}>

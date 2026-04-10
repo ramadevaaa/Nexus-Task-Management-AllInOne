@@ -218,6 +218,27 @@ export default function Dashboard() {
     return { total, completed, rate: total === 0 ? 0 : Math.round((completed / total) * 100) };
   }, [queueItems]);
 
+  // ── ANALYSIS: NEXUS PULSE (Last 7 Days) ──
+  const pulseData = useMemo(() => {
+    const days = [6, 5, 4, 3, 2, 1, 0].map(d => {
+      const date = new Date();
+      date.setDate(date.getDate() - d);
+      return date.toDateString();
+    });
+    
+    // Count completions per day
+    const completedMissions = queueItems.filter(t => t.isCompleted && (t.deadlineDate || t.date));
+    const counts = days.map(d => {
+      return completedMissions.filter(m => {
+        const mDate = new Date(m.deadlineDate || m.date);
+        return mDate.toDateString() === d;
+      }).length;
+    });
+
+    const max = Math.max(...counts, 1);
+    return counts.map(c => Math.round((c / max) * 100));
+  }, [queueItems]);
+
   const dayPct = Math.round((today.getHours() / 24) * 100);
   const displayName = operatorName || currentUser?.displayName || 'there';
 
@@ -247,16 +268,30 @@ export default function Dashboard() {
       {/* ════════════════ LEFT COL ════════════════ */}
       <section className="lg:col-span-3 space-y-4">
 
-        {/* ── Greeting Hero Card ── */}
+        {/* ── Greeting Hero Card (Restored Blue) ── */}
         <div style={{
           background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
           borderRadius: '18px',
-          boxShadow: '0 8px 32px rgba(59,130,246,0.40)',
+          boxShadow: '0 8px 32px rgba(59,130,246,0.35)',
           padding: '24px',
           position: 'relative',
           overflow: 'hidden'
         }}>
-          <div style={{ position: 'absolute', top: '-40px', right: '-40px', width: '140px', height: '140px', borderRadius: '50%', background: 'rgba(255,255,255,0.10)' }} />
+          {/* ── NEXUS PULSE GRAPH (Top Right) ── */}
+          <div className="absolute top-5 right-6 flex items-end gap-1.5 h-16 opacity-40">
+            {pulseData.map((h, i) => (
+              <div 
+                key={i} 
+                className="w-1.5 bg-white/40 rounded-full transition-all duration-700"
+                style={{ 
+                  height: `${Math.max(10, h)}%`, 
+                  boxShadow: '0 0 10px rgba(255,255,255,0.4)',
+                  animation: 'grow 1.5s ease-out'
+                }} 
+              />
+            ))}
+          </div>
+
           <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>{greeting()},</p>
           <h2 style={{ color: '#fff', fontSize: '26px', fontWeight: 800, lineHeight: 1.2, marginBottom: '4px' }}>{displayName} 👋</h2>
           <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', marginBottom: '20px' }}>What's on the menu today?</p>
@@ -317,9 +352,74 @@ export default function Dashboard() {
         </div>
 
         {/* Audio */}
-        <div style={card} className="p-5">
-          <p style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '14px', marginBottom: '14px' }}>Focus Audio</p>
+        <div style={card} className="p-4">
+          <p style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '13px', marginBottom: '10px' }}>Focus Audio</p>
           <SpotifyPlayer ref={spotifyRef} />
+        </div>
+
+        {/* ── MOBILE OPTIMIZED SECTION: Portals & Stats (Always side-by-side) ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+          
+          {/* Minimal Quick Portals */}
+          <div style={card} className="p-3.5 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider">Portals</p>
+              <Link2 size={12} className="text-[var(--text-muted)]" />
+            </div>
+            <div className="grid grid-cols-2 gap-2 flex-1">
+              <NavLink to="/calendar" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl group hover:border-blue-500/30">
+                <img src="/calendar.svg" alt="" className="w-5 h-5 opacity-70 group-hover:opacity-100 invert" />
+                <span className="text-[8px] font-bold mt-1 text-[var(--text-muted)]">Cal</span>
+              </NavLink>
+              <a href="https://github.com" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl group hover:border-blue-500/30">
+                <img src="/github.svg" alt="" className="w-5 h-5 opacity-70 group-hover:opacity-100 invert" />
+                <span className="text-[8px] font-bold mt-1 text-[var(--text-muted)]">Git</span>
+              </a>
+              {portals.slice(0, 1).map(p => (
+                <div key={p.id} className="relative group">
+                  <a href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl h-full hover:border-blue-500/30">
+                    {p.icon?.includes('/') ? <img src={p.icon} className="w-5 h-5 object-contain" /> : <span className="text-base">{p.icon || '🔗'}</span>}
+                    <span className="text-[8px] font-bold truncate mt-1 w-full text-center">{p.name || 'Link'}</span>
+                  </a>
+                  <button onClick={() => deleteTask(p.id)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 shadow-md"><X size={10} /></button>
+                </div>
+              ))}
+              <button onClick={() => setIsHubModalOpen(true)} className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl hover:border-blue-500/30">
+                <span className="text-base text-[var(--text-muted)]">+</span>
+                <span className="text-[8px] font-bold mt-1 text-[var(--text-faint)]">Add</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Minimal Mission Stats */}
+          <div style={card} className="p-3.5 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider">Missions</p>
+              <BarChart3 size={12} className="text-[var(--text-muted)]" />
+            </div>
+            <div className="flex-1 flex flex-col justify-center gap-2">
+              <div className="flex gap-2">
+                <div className="flex-1 p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl text-center">
+                  <p className="text-sm font-black text-[var(--text-main)]">{stats.total}</p>
+                  <p className="text-[7px] font-bold text-[var(--text-faint)] uppercase">Total</p>
+                </div>
+                <div className="flex-1 p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl text-center">
+                  <p className="text-sm font-black text-green-500">{stats.completed}</p>
+                  <p className="text-[7px] font-bold text-[var(--text-faint)] uppercase">Done</p>
+                </div>
+              </div>
+              <div className="mt-1">
+                 <div className="flex justify-between text-[8px] font-black text-[var(--text-muted)] mb-1 uppercase tracking-tighter">
+                   <span>Progress</span>
+                   <span className="text-blue-500">{stats.rate}%</span>
+                 </div>
+                 <div className="h-1 bg-[var(--bg-deep)] rounded-full overflow-hidden">
+                   <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${stats.rate}%` }} />
+                 </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -450,65 +550,6 @@ export default function Dashboard() {
 
       {/* ════════════════ RIGHT COL ════════════════ */}
       <section className="lg:col-span-3 space-y-4">
-        
-        {/* Quick Portals */}
-        <div style={card} className="p-5">
-           <div className="flex items-center justify-between mb-4">
-             <p className="text-sm font-bold text-[var(--text-main)]">Quick Portals</p>
-             <Link2 size={15} className="text-[var(--text-muted)]" />
-           </div>
-           <div className="grid grid-cols-3 gap-2.5">
-             <NavLink to="/calendar" className="flex flex-col items-center gap-1.5 p-3 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl group hover:border-blue-500/30">
-               <img src="/calendar.svg" alt="" className="w-6 h-6 opacity-70 group-hover:opacity-100 invert" />
-               <span className="text-[10px] font-bold text-[var(--text-muted)]">Calendar</span>
-             </NavLink>
-             <a href="https://github.com" target="_blank" rel="noreferrer" className="flex flex-col items-center gap-1.5 p-3 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl group hover:border-blue-500/30">
-               <img src="/github.svg" alt="" className="w-6 h-6 opacity-70 group-hover:opacity-100 invert" />
-               <span className="text-[10px] font-bold text-[var(--text-muted)]">GitHub</span>
-             </a>
-             {portals.map(p => (
-               <div key={p.id} className="relative group">
-                 <a href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center gap-1.5 p-3 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl h-full hover:border-blue-500/30">
-                    {p.icon?.includes('/') ? <img src={p.icon} className="w-6 h-6 object-contain" /> : <span className="text-xl">{p.icon || '🔗'}</span>}
-                    <span className="text-[10px] font-bold truncate w-full text-center">{p.name}</span>
-                 </a>
-                 <button onClick={() => deleteTask(p.id)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 shadow-md"><X size={10} /></button>
-               </div>
-             ))}
-             <button onClick={() => setIsHubModalOpen(true)} className="flex flex-col items-center gap-1.5 p-3 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl hover:border-blue-500/30">
-               <span className="text-xl text-[var(--text-muted)]">+</span>
-               <span className="text-[10px] font-bold text-[var(--text-faint)]">Add Hub</span>
-             </button>
-           </div>
-        </div>
-
-        {/* Stats */}
-        <div style={card} className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm font-bold text-[var(--text-main)]">Mission Stats</p>
-            <BarChart3 size={15} className="text-[var(--text-muted)]" />
-          </div>
-          <div className="grid grid-cols-2 gap-4 mb-5">
-            {[
-              { label: 'Missions', value: stats.total },
-              { label: 'Completed', value: stats.completed },
-              { label: 'Active Tasks', value: queueItems.filter(a => a.type === 'task' && !a.isCompleted).length },
-              { label: 'High Priority', value: queueItems.filter(a => a.type === 'task' && a.priority === 'high' && !a.isCompleted).length },
-            ].map(s => (
-              <div key={s.label} className="p-3 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl text-center">
-                <p className="text-2xl font-black text-[var(--text-main)]">{s.value}</p>
-                <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{s.label}</p>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between text-[11px] font-bold text-[var(--text-muted)] mb-1.5">
-            <span>Completion Rate</span>
-            <span className="text-blue-500">{stats.rate}%</span>
-          </div>
-          <div className="h-1.5 bg-[var(--bg-deep)] rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${stats.rate}%` }} />
-          </div>
-        </div>
         
         {/* Quick Mini Calendar */}
         <div style={card} className="p-5 hidden lg:block">

@@ -40,9 +40,9 @@ export default function RootLayout() {
 
         {/* Left: Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
-            <span className="text-white font-bold text-sm tracking-tight">N</span>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center p-1.5 shadow-lg overflow-hidden border border-white/5"
+            style={{ background: 'linear-gradient(145deg, #0f172a 0%, #171e2e 100%)' }}>
+            <img src="/favicon.svg" alt="Nexus Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <span className="font-bold text-base tracking-tight" style={{ color: 'var(--text-main)' }}>Nexus</span>
@@ -86,8 +86,12 @@ export default function RootLayout() {
       </main>
 
       {/* ── MOBILE BOTTOM NAV ── */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pb-1.5 pt-1"
-        style={{ backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border)' }}>
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pt-2 shadow-[0_-8px_32px_rgba(0,0,0,0.15)]"
+        style={{ 
+          backgroundColor: 'var(--bg-card)', 
+          borderTop: '1px solid var(--border)',
+          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))'
+        }}>
         <div className="flex justify-around items-center max-w-sm mx-auto">
 
           <NavLink to="/" end className={navItemCls}>
