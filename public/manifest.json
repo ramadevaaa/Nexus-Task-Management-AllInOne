@@ -14,10 +14,10 @@
       "purpose": "any maskable"
     },
     {
-      "src": "pwa-512.png",
+      "src": "favicon.svg",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ]
 }
