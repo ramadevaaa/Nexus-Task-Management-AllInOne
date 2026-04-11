@@ -18,7 +18,7 @@ export function useTasks() {
   const decryptActivity = useCallback((data, userId) => {
     return {
       ...data,
-      title: decryptData(data.title, userId),
+      title: decryptData(data.title || data.name, userId), // Fallback for old portals
       detail: decryptData(data.detail, userId),
       location: decryptData(data.location, userId),
       content: decryptData(data.content, userId),
@@ -40,11 +40,13 @@ export function useTasks() {
     if (typeof data.content === 'string') res.content = encryptData(data.content, userId);
     if (typeof data.url === 'string') res.url = encryptData(data.url, userId);
     
-    // Only encrypt imageUrl if it's a standard URL, NOT a base64 string
-    if (typeof data.imageUrl === 'string' && !data.imageUrl.startsWith('data:')) {
-      res.imageUrl = encryptData(data.imageUrl, userId);
-    } else {
-      res.imageUrl = data.imageUrl;
+    // Only handle imageUrl if it exists
+    if (data.imageUrl !== undefined) {
+      if (typeof data.imageUrl === 'string' && !data.imageUrl.startsWith('data:')) {
+        res.imageUrl = encryptData(data.imageUrl, userId);
+      } else {
+        res.imageUrl = data.imageUrl;
+      }
     }
     
     return res;
@@ -227,7 +229,7 @@ export function useTasks() {
 
   // ── ADD PORTAL ──
   const addPortal = useCallback(async (portalData) => {
-    if (!currentUser) return;
+    if (!currentUser || !portalData.title?.trim()) return;
     const tempId = `temp_${Date.now()}`;
     const tempItem = {
       id: tempId,

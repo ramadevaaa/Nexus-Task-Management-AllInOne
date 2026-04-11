@@ -1,22 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Link2 } from 'lucide-react';
 
 const EMOJI_OPTIONS = ['🔗', '📋', '🗂️', '🧩', '🛠️', '📊', '🎯', '💡', '📝', '🚀', '🌐', '💼'];
 
-export default function AddHubModal({ isOpen, onClose, onSave }) {
-  const [name, setName]           = useState('');
-  const [url, setUrl]             = useState('');
-  const [icon, setIcon]           = useState('🔗');
+export default function AddHubModal({ isOpen, onClose, onSave, portal = null }) {
+  const [title, setTitle]         = useState(portal?.title || '');
+  const [url, setUrl]             = useState(portal?.url || '');
+  const [icon, setIcon]           = useState(portal?.icon || '🔗');
   const [showPicker, setShowPicker] = useState(false);
+
+  // Update state if portal prop changes
+  useEffect(() => {
+    if (portal) {
+      setTitle(portal.title || '');
+      setUrl(portal.url || '');
+      setIcon(portal.icon || '🔗');
+    } else {
+      setTitle('');
+      setUrl('');
+      setIcon('🔗');
+    }
+  }, [portal, isOpen]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!name.trim() || !url.trim()) return;
+    if (!title.trim() || !url.trim()) return;
     const fullUrl = url.startsWith('http') ? url : `https://${url}`;
-    onSave({ name: name.trim(), url: fullUrl, icon });
-    setName(''); setUrl(''); setIcon('🔗');
+    onSave({ title: title.trim(), url: fullUrl, icon }, portal?.id);
+    if (!portal) {
+       setTitle(''); setUrl(''); setIcon('🔗');
+    }
     onClose();
   };
 
@@ -48,7 +63,7 @@ export default function AddHubModal({ isOpen, onClose, onSave }) {
             <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Link2 size={16} style={{ color: '#60a5fa' }} />
             </div>
-            <p style={{ fontSize: '15px', fontWeight: 700, color: '#f1f5f9' }}>Add Quick Portal</p>
+            <p style={{ fontSize: '15px', fontWeight: 700, color: '#f1f5f9' }}>{portal ? 'Edit Quick Portal' : 'Add Quick Portal'}</p>
           </div>
           <button
             onClick={onClose}
@@ -115,7 +130,7 @@ export default function AddHubModal({ isOpen, onClose, onSave }) {
             {/* App Name */}
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#8b9ab5', marginBottom: '8px' }}>App name</label>
-              <input autoFocus type="text" value={name} onChange={e => setName(e.target.value)} required
+              <input autoFocus type="text" value={title} onChange={e => setTitle(e.target.value)} required
                 style={inputStyle} placeholder="e.g. Notion, Figma, Linear"
                 onFocus={e => e.target.style.borderColor = '#3b82f6'}
                 onBlur={e => e.target.style.borderColor = '#2a3347'}
@@ -145,7 +160,7 @@ export default function AddHubModal({ isOpen, onClose, onSave }) {
               style={{ padding: '10px 24px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 3px 12px rgba(59,130,246,0.4)', transition: 'all 0.15s' }}
               onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
               onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
-              Add Portal
+              {portal ? 'Update Portal' : 'Add Portal'}
             </button>
           </div>
         </form>

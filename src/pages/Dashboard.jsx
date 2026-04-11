@@ -84,7 +84,6 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
 
   useEffect(() => {
     if (textRef.current) {
-      // Small delay to ensure browser has rendered the layout
       const check = () => {
         if (textRef.current) {
           setIsTruncated(textRef.current.scrollHeight > textRef.current.clientHeight);
@@ -98,12 +97,30 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
 
   return (
     <div className="group relative bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-2xl overflow-hidden hover:border-indigo-500/30 transition-all h-fit">
+      
+      {/* Actions Overlay */}
+      <div className="absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-all duration-300">
+        <button 
+          onClick={(e) => { e.stopPropagation(); openEditModal(item); }} 
+          className="p-2 bg-white/10 backdrop-blur-md border border-white/20 text-blue-400 hover:bg-blue-400 hover:text-white rounded-xl transition-all shadow-lg"
+        >
+          <Pencil size={14} />
+        </button>
+        <button 
+          onClick={(e) => { e.stopPropagation(); deleteTask(item.id); }} 
+          className="p-2 bg-white/10 backdrop-blur-md border border-white/20 text-red-400 hover:bg-red-400 hover:text-white rounded-xl transition-all shadow-lg"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+
       {item.imageUrl && (
         <div className="h-40 overflow-hidden cursor-zoom-in" onClick={() => setIsZoomed(true)}>
           <img src={item.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
           <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-all" />
         </div>
       )}
+
       <div className="p-4">
         <div className="flex justify-between items-start gap-2 mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
@@ -111,10 +128,6 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
                {item.vaultType === 'idea' ? <Lightbulb size={16} /> : item.vaultType === 'learning' ? <Library size={16} /> : <StickyNote size={16} />}
             </span>
             <h4 className="font-bold text-sm truncate text-[var(--text-main)]">{item.title}</h4>
-          </div>
-          <div className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all">
-            <button onClick={() => openEditModal(item)} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-colors"><Pencil size={14} /></button>
-            <button onClick={() => deleteTask(item.id)} className="p-1.5 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"><Trash2 size={14} /></button>
           </div>
         </div>
         
@@ -173,6 +186,8 @@ export default function Dashboard() {
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+  const [portalEditTarget, setPortalEditTarget] = useState(null);
+  const [isGithubDismissed, setIsGithubDismissed] = useState(() => localStorage.getItem('nexus_dismiss_github') === 'true');
   const [vaultSearch, setVaultSearch] = useState('');
   const spotifyRef = useRef(null);
 
@@ -212,10 +227,22 @@ export default function Dashboard() {
     (activities || []).filter(a => a.type === 'task' || a.type === 'event'),
     [activities]
   );
-  const portals = useMemo(() =>
-    (activities || []).filter(a => a.type === 'portal'),
-    [activities]
-  );
+  const portals = useMemo(() => {
+    const list = (activities || []).filter(a => a.type === 'portal');
+    const hasGithub = list.some(p => p.title?.toLowerCase() === 'github');
+
+    if (!hasGithub && !isGithubDismissed) {
+      return [{
+        id: 'default_github',
+        title: 'Github',
+        url: 'https://github.com',
+        icon: '/github.svg',
+        type: 'portal',
+        isDefault: true
+      }, ...list];
+    }
+    return list;
+  }, [activities, isGithubDismissed]);
   const vaultItems = useMemo(() =>
     (activities || []).filter(a => a.type === 'vault'),
     [activities]
@@ -224,7 +251,7 @@ export default function Dashboard() {
   const filteredVault = useMemo(() => {
     if (!vaultSearch) return vaultItems;
     return vaultItems.filter(v => 
-      v.title.toLowerCase().includes(vaultSearch.toLowerCase()) || 
+      v.title?.toLowerCase().includes(vaultSearch.toLowerCase()) || 
       v.content?.toLowerCase().includes(vaultSearch.toLowerCase())
     );
   }, [vaultItems, vaultSearch]);
@@ -286,10 +313,35 @@ export default function Dashboard() {
     }
   };
 
+  const handleSavePortal = async (data, id) => {
+    if (id === 'default_github') {
+      // Promoting default to real entry
+      await addPortal(data);
+      localStorage.setItem('nexus_dismiss_github', 'true');
+      setIsGithubDismissed(true);
+    } else if (id) {
+      await updateActivity(id, data);
+    } else {
+      await addPortal(data);
+    }
+  };
+
+  const handleDeletePortal = async (id) => {
+     if (id === 'default_github') {
+        localStorage.setItem('nexus_dismiss_github', 'true');
+        setIsGithubDismissed(true);
+     } else {
+        await deleteTask(id);
+     }
+  };
+
   const openEditModal = (item) => {
     setEditTarget(item);
     if (item.type === 'vault') {
       setIsVaultModalOpen(true);
+    } else if (item.type === 'portal') {
+      setPortalEditTarget(item);
+      setIsHubModalOpen(true);
     } else {
       setIsModalOpen(true);
     }
@@ -416,17 +468,19 @@ export default function Dashboard() {
                  <CalendarDays size={16} className="text-[var(--text-muted)]" />
                  <span className="text-[8px] font-bold mt-1 text-[var(--text-muted)]">Cal</span>
               </NavLink>
-              <a href="https://github.com" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl">
-                <img src="/github.svg" alt="" className="w-4 h-4 opacity-70 invert" />
-                <span className="text-[8px] font-bold mt-1 text-[var(--text-muted)]">Git</span>
-              </a>
-              {portals.slice(0, isStatsExpanded ? 5 : 1).map(p => (
-                <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl">
-                   <span className="text-xs">{p.icon || '🔗'}</span>
-                   <span className="text-[8px] font-bold truncate mt-1 w-full text-center">{p.name || 'Link'}</span>
-                </a>
+              {portals.slice(0, isStatsExpanded ? 6 : 2).map(p => (
+                <div key={p.id} className="relative group">
+                  <a href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl h-full">
+                     {p.icon?.includes('/') ? <img src={p.icon} className="w-4 h-4 object-contain invert" /> : <span className="text-sm">{p.icon || '🔗'}</span>}
+                     <span className="text-[8px] font-bold truncate mt-1 w-full text-center">{p.title || 'Link'}</span>
+                  </a>
+                  <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => openEditModal(p)} className="bg-blue-500 text-white rounded-full p-1 shadow-md"><Pencil size={8} /></button>
+                    <button onClick={() => handleDeletePortal(p.id)} className="bg-red-500 text-white rounded-full p-1 shadow-md"><X size={8} /></button>
+                  </div>
+                </div>
               ))}
-              <button onClick={() => setIsHubModalOpen(true)} className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl">
+              <button onClick={() => { setPortalEditTarget(null); setIsHubModalOpen(true); }} className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl">
                 <Plus size={16} className="text-[var(--text-faint)]" />
               </button>
             </div>
@@ -640,20 +694,19 @@ export default function Dashboard() {
                 <CalendarDays size={20} className="text-[var(--text-muted)] group-hover:text-blue-500" />
                 <span className="text-xs font-bold mt-2 text-[var(--text-muted)]">Calendar</span>
               </NavLink>
-              <a href="https://github.com" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl group hover:border-blue-500/30 transition-all">
-                <img src="/github.svg" alt="" className="w-5 h-5 opacity-70 group-hover:opacity-100 invert" />
-                <span className="text-xs font-bold mt-2 text-[var(--text-muted)]">Github</span>
-              </a>
               {portals.map(p => (
                 <div key={p.id} className="relative group">
                   <a href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl h-full hover:border-blue-500/30 transition-all">
                     {p.icon?.includes('/') ? <img src={p.icon} className="w-5 h-5 object-contain" /> : <span className="text-lg">{p.icon || '🔗'}</span>}
-                    <span className="text-xs font-bold truncate mt-2 w-full text-center">{p.name || 'Link'}</span>
+                    <span className="text-xs font-bold truncate mt-2 w-full text-center">{p.title || 'Link'}</span>
                   </a>
-                  <button onClick={() => deleteTask(p.id)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 shadow-md transition-opacity"><X size={10} /></button>
+                  <div className="absolute -top-1 -right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => openEditModal(p)} className="bg-blue-500 text-white rounded-full p-1.5 shadow-md transition-transform hover:scale-110"><Pencil size={12} /></button>
+                    <button onClick={() => handleDeletePortal(p.id)} className="bg-red-500 text-white rounded-full p-1.5 shadow-md transition-transform hover:scale-110"><X size={12} /></button>
+                  </div>
                 </div>
               ))}
-              <button onClick={() => setIsHubModalOpen(true)} className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl hover:border-blue-500/30 transition-all">
+              <button onClick={() => { setPortalEditTarget(null); setIsHubModalOpen(true); }} className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl hover:border-blue-500/30 transition-all">
                 <Plus size={20} className="text-[var(--text-muted)]" />
                 <span className="text-xs font-bold mt-2 text-[var(--text-faint)]">Add Hub</span>
               </button>
@@ -747,7 +800,12 @@ export default function Dashboard() {
         onSave={handleSaveActivity} 
         activity={editTarget}
       />
-      <AddHubModal isOpen={isHubModalOpen} onClose={() => setIsHubModalOpen(false)} onSave={addPortal} />
+      <AddHubModal 
+        isOpen={isHubModalOpen} 
+        onClose={() => setIsHubModalOpen(false)} 
+        onSave={handleSavePortal} 
+        portal={portalEditTarget}
+      />
       <VaultModal 
         isOpen={isVaultModalOpen} 
         onClose={() => setIsVaultModalOpen(false)} 
