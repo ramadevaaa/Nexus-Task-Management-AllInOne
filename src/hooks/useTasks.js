@@ -23,7 +23,8 @@ export function useTasks() {
       location: decryptData(data.location, userId),
       content: decryptData(data.content, userId),
       url: decryptData(data.url, userId),
-      imageUrl: decryptData(data.imageUrl, userId),
+      // Skip decryption if it's already a raw base64 image
+      imageUrl: data.imageUrl?.startsWith('data:') ? data.imageUrl : decryptData(data.imageUrl, userId),
     };
   }, []);
 
@@ -38,7 +39,13 @@ export function useTasks() {
     if (typeof data.location === 'string') res.location = encryptData(data.location, userId);
     if (typeof data.content === 'string') res.content = encryptData(data.content, userId);
     if (typeof data.url === 'string') res.url = encryptData(data.url, userId);
-    if (typeof data.imageUrl === 'string') res.imageUrl = encryptData(data.imageUrl, userId);
+    
+    // Only encrypt imageUrl if it's a standard URL, NOT a base64 string
+    if (typeof data.imageUrl === 'string' && !data.imageUrl.startsWith('data:')) {
+      res.imageUrl = encryptData(data.imageUrl, userId);
+    } else {
+      res.imageUrl = data.imageUrl;
+    }
     
     return res;
   }, []);

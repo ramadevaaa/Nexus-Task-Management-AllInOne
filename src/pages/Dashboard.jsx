@@ -12,8 +12,17 @@ import {
   Plus, Trash2, ExternalLink, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, Flame, Clock, Coffee, BarChart3,
   Link2, CalendarDays, RotateCcw, Play, Pause, X, Pencil,
-  StickyNote, Lightbulb, Library, Image as ImageIcon, Search, Zap
+  StickyNote, Lightbulb, Library, Image as ImageIcon, Search
 } from 'lucide-react';
+
+const TaskIcon = ({ size = 16, className = "" }) => (
+  <img 
+    src="/task.svg" 
+    alt="Task" 
+    style={{ width: size, height: size }} 
+    className={`invert brightness-0 invert-[1] ${className}`} 
+  />
+);
 
 /* ─── tiny helpers ─── */
 const greeting = () => {
@@ -69,6 +78,7 @@ const renderTextWithLinks = (text) => {
 /* ─── VaultCard Component for Expandable Text ─── */
 const VaultCard = ({ item, openEditModal, deleteTask }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
   const textRef = useRef(null);
   const [isTruncated, setIsTruncated] = useState(false);
 
@@ -89,8 +99,9 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
   return (
     <div className="group relative bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-2xl overflow-hidden hover:border-indigo-500/30 transition-all h-fit">
       {item.imageUrl && (
-        <div className="h-40 overflow-hidden cursor-zoom-in" onClick={() => window.open(item.imageUrl, '_blank')}>
+        <div className="h-40 overflow-hidden cursor-zoom-in" onClick={() => setIsZoomed(true)}>
           <img src={item.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-all" />
         </div>
       )}
       <div className="p-4">
@@ -130,6 +141,23 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
            </a>
         )}
       </div>
+
+      {/* Full Screen Zoom Overlay */}
+      {isZoomed && (
+        <div 
+          className="fixed inset-0 z-[1200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 lg:p-12 animate-fade-in cursor-zoom-out"
+          onClick={() => setIsZoomed(false)}
+        >
+          <img 
+            src={item.imageUrl} 
+            alt="Full Preview" 
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-scale-up" 
+          />
+          <button className="absolute top-10 right-10 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-all">
+            <X size={24} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -143,6 +171,7 @@ export default function Dashboard() {
   const [isModalOpen, setIsModalOpen]   = useState(false);
   const [isHubModalOpen, setIsHubModalOpen] = useState(false);
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
+  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [vaultSearch, setVaultSearch] = useState('');
   const spotifyRef = useRef(null);
@@ -215,28 +244,35 @@ export default function Dashboard() {
     const missions = queueItems.filter(a => a.type === 'task' || a.type === 'event');
     const total = missions.length;
     const completed = missions.filter(t => t.isCompleted).length;
-    return { total, completed, rate: total === 0 ? 0 : Math.round((completed / total) * 100) };
+    
+    // Breakdown
+    const tasks = missions.filter(m => m.type === 'task');
+    const events = missions.filter(m => m.type === 'event');
+    const pendingTasks = tasks.filter(t => !t.isCompleted).length;
+    const completedTasks = tasks.filter(t => t.isCompleted).length;
+    
+    return { 
+      total, 
+      completed, 
+      pending: total - completed,
+      rate: total === 0 ? 0 : Math.round((completed / total) * 100),
+      tasksCount: tasks.length,
+      eventsCount: events.length,
+      pendingTasks,
+      completedTasks
+    };
   }, [queueItems]);
 
-  // ── ANALYSIS: NEXUS PULSE (Last 7 Days) ──
-  const pulseData = useMemo(() => {
-    const days = [6, 5, 4, 3, 2, 1, 0].map(d => {
-      const date = new Date();
-      date.setDate(date.getDate() - d);
-      return date.toDateString();
-    });
-    
-    // Count completions per day
-    const completedMissions = queueItems.filter(t => t.isCompleted && (t.deadlineDate || t.date));
-    const counts = days.map(d => {
-      return completedMissions.filter(m => {
-        const mDate = new Date(m.deadlineDate || m.date);
-        return mDate.toDateString() === d;
-      }).length;
-    });
-
-    const max = Math.max(...counts, 1);
-    return counts.map(c => Math.round((c / max) * 100));
+  // ── ANALYSIS: UPCOMING OUTLOOK ──
+  const upcomingMissions = useMemo(() => {
+    return (queueItems || [])
+      .filter(m => !m.isCompleted)
+      .sort((a, b) => {
+        const timeA = new Date(`${a.deadlineDate || a.date || '2099-01-01'} ${a.deadlineTime || a.time || '23:59'}`).getTime();
+        const timeB = new Date(`${b.deadlineDate || b.date || '2099-01-01'} ${b.deadlineTime || b.time || '23:59'}`).getTime();
+        return timeA - timeB;
+      })
+      .slice(0, 2);
   }, [queueItems]);
 
   const dayPct = Math.round((today.getHours() / 24) * 100);
@@ -277,24 +313,34 @@ export default function Dashboard() {
           position: 'relative',
           overflow: 'hidden'
         }}>
-          {/* ── NEXUS PULSE GRAPH (Top Right) ── */}
-          <div className="absolute top-5 right-6 flex items-end gap-1.5 h-16 opacity-40">
-            {pulseData.map((h, i) => (
-              <div 
-                key={i} 
-                className="w-1.5 bg-white/40 rounded-full transition-all duration-700"
-                style={{ 
-                  height: `${Math.max(10, h)}%`, 
-                  boxShadow: '0 0 10px rgba(255,255,255,0.4)',
-                  animation: 'grow 1.5s ease-out'
-                }} 
-              />
-            ))}
+          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>{greeting()},</p>
+          <h2 className="truncate" style={{ color: '#fff', fontSize: '26px', fontWeight: 800, lineHeight: 1.2, marginBottom: '4px' }}>{displayName} 👋</h2>
+          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', marginBottom: '16px' }}>What's on the menu today?</p>
+
+          {/* ── TODAY'S OUTLOOK (Inline) ── */}
+          <div className="flex flex-col gap-2 mb-6">
+            {upcomingMissions.length > 0 ? (
+              upcomingMissions.map((m, i) => (
+                <div key={m.id} className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-3 py-2 rounded-xl border border-white/10 w-full animate-fade-in shadow-sm" style={{ animationDelay: `${i * 0.1}s` }}>
+                  <div className={`p-1.5 rounded-lg flex-shrink-0 ${m.type === 'event' ? 'bg-indigo-400/30' : 'bg-blue-400/30'}`}>
+                    {m.type === 'event' ? <CalendarDays size={14} className="text-white" /> : <TaskIcon size={14} className="brightness-200" />}
+                  </div>
+                   <div className="min-w-0 flex-1">
+                     <p className="text-[11px] font-bold text-white truncate leading-none mb-1">{m.title}</p>
+                     <p className="text-[9px] font-medium text-white/50 truncate flex items-center gap-1">
+                       <CalendarDays size={8} /> {m.deadlineDate || m.date || 'Today'} • <Clock size={8} /> {m.deadlineTime || m.time || 'Anytime'}
+                     </p>
+                   </div>
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-xl border border-white/10 opacity-60 w-fit">
+                <CheckCircle2 size={12} className="text-white" />
+                <p className="text-[10px] font-bold text-white uppercase tracking-wider">All missions cleared</p>
+              </div>
+            )}
           </div>
 
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>{greeting()},</p>
-          <h2 style={{ color: '#fff', fontSize: '26px', fontWeight: 800, lineHeight: 1.2, marginBottom: '4px' }}>{displayName} 👋</h2>
-          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', marginBottom: '20px' }}>What's on the menu today?</p>
           <p style={{ color: '#fff', fontSize: '34px', fontWeight: 300, fontFamily: '"Space Mono", monospace', letterSpacing: '0.05em', marginBottom: '16px' }}>
             {today.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </p>
@@ -357,70 +403,99 @@ export default function Dashboard() {
           <SpotifyPlayer ref={spotifyRef} />
         </div>
 
-        {/* ── MOBILE OPTIMIZED SECTION: Portals & Stats (Always side-by-side) ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
-          
-          {/* Minimal Quick Portals */}
-          <div style={card} className="p-3.5 flex flex-col h-full">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider">Portals</p>
+        {/* ── MOBILE ONLY: Portals & Stats (Interactive) ── */}
+        <div className={`lg:hidden flex ${isStatsExpanded ? 'flex-col' : 'flex-row'} gap-3 px-1 transition-all duration-300`}>
+          {/* Quick Portals Minimal */}
+          <div style={card} className={`p-3.5 flex flex-col transition-all duration-300 ${isStatsExpanded ? 'w-full' : 'w-1/2'}`}>
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-[10px] font-bold text-[var(--text-main)] uppercase tracking-wider">Portals</p>
               <Link2 size={12} className="text-[var(--text-muted)]" />
             </div>
-            <div className="grid grid-cols-2 gap-2 flex-1">
-              <NavLink to="/calendar" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl group hover:border-blue-500/30">
-                <img src="/calendar.svg" alt="" className="w-5 h-5 opacity-70 group-hover:opacity-100 invert" />
-                <span className="text-[8px] font-bold mt-1 text-[var(--text-muted)]">Cal</span>
+            <div className={`grid ${isStatsExpanded ? 'grid-cols-4' : 'grid-cols-2'} gap-2`}>
+              <NavLink to="/calendar" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl">
+                 <CalendarDays size={16} className="text-[var(--text-muted)]" />
+                 <span className="text-[8px] font-bold mt-1 text-[var(--text-muted)]">Cal</span>
               </NavLink>
-              <a href="https://github.com" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl group hover:border-blue-500/30">
-                <img src="/github.svg" alt="" className="w-5 h-5 opacity-70 group-hover:opacity-100 invert" />
+              <a href="https://github.com" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl">
+                <img src="/github.svg" alt="" className="w-4 h-4 opacity-70 invert" />
                 <span className="text-[8px] font-bold mt-1 text-[var(--text-muted)]">Git</span>
               </a>
-              {portals.slice(0, 1).map(p => (
-                <div key={p.id} className="relative group">
-                  <a href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl h-full hover:border-blue-500/30">
-                    {p.icon?.includes('/') ? <img src={p.icon} className="w-5 h-5 object-contain" /> : <span className="text-base">{p.icon || '🔗'}</span>}
-                    <span className="text-[8px] font-bold truncate mt-1 w-full text-center">{p.name || 'Link'}</span>
-                  </a>
-                  <button onClick={() => deleteTask(p.id)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 shadow-md"><X size={10} /></button>
-                </div>
+              {portals.slice(0, isStatsExpanded ? 5 : 1).map(p => (
+                <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl">
+                   <span className="text-xs">{p.icon || '🔗'}</span>
+                   <span className="text-[8px] font-bold truncate mt-1 w-full text-center">{p.name || 'Link'}</span>
+                </a>
               ))}
-              <button onClick={() => setIsHubModalOpen(true)} className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl hover:border-blue-500/30">
-                <span className="text-base text-[var(--text-muted)]">+</span>
-                <span className="text-[8px] font-bold mt-1 text-[var(--text-faint)]">Add</span>
+              <button onClick={() => setIsHubModalOpen(true)} className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl">
+                <Plus size={16} className="text-[var(--text-faint)]" />
               </button>
             </div>
           </div>
 
-          {/* Minimal Mission Stats */}
-          <div style={card} className="p-3.5 flex flex-col h-full">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[11px] font-bold text-[var(--text-main)] uppercase tracking-wider">Missions</p>
-              <BarChart3 size={12} className="text-[var(--text-muted)]" />
+          {/* Mission Stats Minimal (Expandable) */}
+          <div 
+            style={card} 
+            className={`p-3.5 flex flex-col transition-all duration-500 overflow-hidden ${isStatsExpanded ? 'w-full' : 'w-1/2'}`}
+          >
+            <div className="flex items-center justify-between mb-2.5">
+              <p className="text-[10px] font-bold text-[var(--text-main)] uppercase tracking-wider">Missions</p>
+              <button onClick={() => setIsStatsExpanded(!isStatsExpanded)} className="p-1 hover:bg-white/5 rounded-md transition-colors text-blue-500">
+                {isStatsExpanded ? <div className="text-[9px] font-bold">Collapse ↑</div> : <BarChart3 size={12} />}
+              </button>
             </div>
-            <div className="flex-1 flex flex-col justify-center gap-2">
-              <div className="flex gap-2">
-                <div className="flex-1 p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl text-center">
-                  <p className="text-sm font-black text-[var(--text-main)]">{stats.total}</p>
-                  <p className="text-[7px] font-bold text-[var(--text-faint)] uppercase">Total</p>
+            
+            {!isStatsExpanded ? (
+              <div className="flex flex-col gap-2 animate-fade-in" onClick={() => setIsStatsExpanded(true)}>
+                <div className="flex gap-2">
+                  <div className="flex-1 p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl text-center">
+                    <p className="text-sm font-black text-[var(--text-main)]">{stats.total}</p>
+                    <p className="text-[7px] font-bold text-[var(--text-faint)] uppercase tracking-tighter">Total</p>
+                  </div>
+                  <div className="flex-1 p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl text-center">
+                    <p className="text-sm font-black text-green-500">{stats.completed}</p>
+                    <p className="text-[7px] font-bold text-[var(--text-faint)] uppercase tracking-tighter">Done</p>
+                  </div>
                 </div>
-                <div className="flex-1 p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl text-center">
-                  <p className="text-sm font-black text-green-500">{stats.completed}</p>
-                  <p className="text-[7px] font-bold text-[var(--text-faint)] uppercase">Done</p>
+                <div className="h-1 bg-[var(--bg-deep)] rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${stats.rate}%` }} />
                 </div>
               </div>
-              <div className="mt-1">
-                 <div className="flex justify-between text-[8px] font-black text-[var(--text-muted)] mb-1 uppercase tracking-tighter">
-                   <span>Progress</span>
-                   <span className="text-blue-500">{stats.rate}%</span>
-                 </div>
-                 <div className="h-1 bg-[var(--bg-deep)] rounded-full overflow-hidden">
-                   <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${stats.rate}%` }} />
-                 </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 animate-fade-in-up py-1">
+                <div className="space-y-3">
+                   <div className="flex justify-between items-end">
+                      <p className="text-2xl font-black text-blue-500 tracking-tighter">{stats.rate}%</p>
+                      <p className="text-[9px] font-bold opacity-40 uppercase">Efficiency</p>
+                   </div>
+                   <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
+                     <div className="h-full bg-blue-500" style={{ width: `${stats.rate}%` }} />
+                   </div>
+                   <div className="flex flex-wrap gap-2 text-[8px] font-bold text-[var(--text-faint)]">
+                      <span className="flex items-center gap-1">● {stats.pending} Pending</span>
+                      <span className="flex items-center gap-1 text-green-500">✔ {stats.completed} Done</span>
+                   </div>
+                </div>
+                <div className="bg-[var(--bg-deep)] rounded-2xl p-3 border border-[var(--border-soft)] flex flex-col justify-between">
+                   <div className="flex justify-between items-center mb-2">
+                      <span className="text-[9px] font-bold uppercase text-[var(--text-muted)]">Breakdown</span>
+                      <TaskIcon size={10} className="opacity-50" />
+                   </div>
+                   <div className="space-y-1.5">
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-[var(--text-muted)]">Tasks</span>
+                        <span className="text-[var(--text-main)]">{stats.tasksCount}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px] font-bold">
+                        <span className="text-[var(--text-muted)]">Events</span>
+                        <span className="text-[var(--text-main)]">{stats.eventsCount}</span>
+                      </div>
+                   </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
-
         </div>
+
       </section>
 
       {/* ════════════════ CENTER COL ════════════════ */}
@@ -466,7 +541,7 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                        <div className="flex items-center gap-2.5 flex-wrap">
                          <div className={`p-1.5 rounded-lg flex-shrink-0 ${item.type === 'event' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                           {item.type === 'event' ? <CalendarDays size={12} /> : <Zap size={12} />}
+                           {item.type === 'event' ? <CalendarDays size={12} /> : <TaskIcon size={12} className="opacity-80" />}
                          </div>
                          <p className={`text-sm font-medium ${item.isCompleted ? 'line-through opacity-50' : ''}`}>{item.title}</p>
                          
@@ -551,6 +626,88 @@ export default function Dashboard() {
       {/* ════════════════ RIGHT COL ════════════════ */}
       <section className="lg:col-span-3 space-y-4">
         
+        {/* ── DESKTOP ONLY: Standard Portals & Stats (Above Calendar) ── */}
+        <div className="hidden lg:flex flex-col gap-4">
+          
+          {/* Quick Portals Standard */}
+          <div style={card} className="p-5 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm font-bold text-[var(--text-main)] uppercase tracking-wider">Quick Portals</p>
+              <Link2 size={16} className="text-[var(--text-muted)]" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <NavLink to="/calendar" className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl group hover:border-blue-500/30 transition-all">
+                <CalendarDays size={20} className="text-[var(--text-muted)] group-hover:text-blue-500" />
+                <span className="text-xs font-bold mt-2 text-[var(--text-muted)]">Calendar</span>
+              </NavLink>
+              <a href="https://github.com" target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl group hover:border-blue-500/30 transition-all">
+                <img src="/github.svg" alt="" className="w-5 h-5 opacity-70 group-hover:opacity-100 invert" />
+                <span className="text-xs font-bold mt-2 text-[var(--text-muted)]">Github</span>
+              </a>
+              {portals.map(p => (
+                <div key={p.id} className="relative group">
+                  <a href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl h-full hover:border-blue-500/30 transition-all">
+                    {p.icon?.includes('/') ? <img src={p.icon} className="w-5 h-5 object-contain" /> : <span className="text-lg">{p.icon || '🔗'}</span>}
+                    <span className="text-xs font-bold truncate mt-2 w-full text-center">{p.name || 'Link'}</span>
+                  </a>
+                  <button onClick={() => deleteTask(p.id)} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 shadow-md transition-opacity"><X size={10} /></button>
+                </div>
+              ))}
+              <button onClick={() => setIsHubModalOpen(true)} className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl hover:border-blue-500/30 transition-all">
+                <Plus size={20} className="text-[var(--text-muted)]" />
+                <span className="text-xs font-bold mt-2 text-[var(--text-faint)]">Add Hub</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Mission Stats Standard */}
+          <div style={card} className="p-5 flex flex-col">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-sm font-bold text-[var(--text-main)] uppercase tracking-wider">Mission Analysis</p>
+                <p className="text-[10px] text-[var(--text-muted)] font-medium">Performance tracking</p>
+              </div>
+              <BarChart3 size={18} className="text-blue-500" />
+            </div>
+            
+            <div className="space-y-5">
+              {/* Primary Counter */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-4 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-2xl">
+                  <p className="text-2xl font-black text-[var(--text-main)] tracking-tight">{stats.total}</p>
+                  <p className="text-[10px] font-bold text-[var(--text-faint)] uppercase mt-0.5">Assigned</p>
+                </div>
+                <div className="p-4 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-2xl">
+                  <p className="text-2xl font-black text-green-500 tracking-tight">{stats.completed}</p>
+                  <p className="text-[10px] font-bold text-[var(--text-faint)] uppercase mt-0.5">Successful</p>
+                </div>
+              </div>
+
+              {/* Progress Detail */}
+              <div className="bg-[var(--bg-deep)] p-4 rounded-2xl border border-[var(--border-soft)]">
+                 <div className="flex justify-between text-[11px] font-bold text-[var(--text-muted)] mb-2.5 uppercase tracking-wide">
+                   <span>Completion Rate</span>
+                   <span className="text-blue-500">{stats.rate}%</span>
+                 </div>
+                 <div className="h-2 bg-black/20 rounded-full overflow-hidden mb-4">
+                   <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-1000" style={{ width: `${stats.rate}%` }} />
+                 </div>
+                 
+                 <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                       <span className="text-[10px] font-bold text-[var(--text-muted)]">{stats.pendingTasks} Tasks Pending</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                       <span className="text-[10px] font-bold text-[var(--text-muted)]">{stats.eventsCount} Events Total</span>
+                    </div>
+                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Mini Calendar */}
         <div style={card} className="p-5 hidden lg:block">
           <div className="flex items-center justify-between mb-4">

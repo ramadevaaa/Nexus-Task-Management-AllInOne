@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, CalendarDays, Pencil, Zap } from 'lucide-react';
+import { X, CalendarDays, Pencil } from 'lucide-react';
+
+const TaskIcon = ({ size = 16, className = "" }) => (
+  <img 
+    src="/task.svg" 
+    alt="Task" 
+    style={{ width: size, height: size }} 
+    className={`invert brightness-0 invert-[1] ${className}`} 
+  />
+);
 
 export default function ActivityModal({ isOpen, onClose, onSave, activity = null, defaultType = 'task', defaultDate = '' }) {
   const [type, setType]             = useState(defaultType);
@@ -123,8 +132,8 @@ export default function ActivityModal({ isOpen, onClose, onSave, activity = null
                     color: type === t ? '#60a5fa' : '#8b9ab5',
                     cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
                   }}>
-                  <div className={`p-1.5 rounded-lg ${type === t ? (t === 'event' ? 'bg-indigo-500/20' : 'bg-blue-500/20') : 'bg-white/5'}`}>
-                    {t === 'task' ? <Zap size={14} /> : <CalendarDays size={14} />}
+                  <div className={`p-1.5 rounded-lg ${type === t ? (t === 'event' ? 'bg-indigo-500/20' : 'bg-blue-400/20') : 'bg-white/5'}`}>
+                    {t === 'task' ? <TaskIcon size={14} /> : <CalendarDays size={14} />}
                   </div>
                   <span>{t.toUpperCase()}</span>
                 </button>

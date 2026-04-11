@@ -10,8 +10,10 @@ export default function VaultModal({ isOpen, onClose, onSave, activity = null })
   const [url, setUrl] = useState('');
   const [image, setImage] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState(null);
   const [currentImageUrl, setCurrentImageUrl] = useState('');
+  const [isZoomed, setIsZoomed] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -37,16 +39,29 @@ export default function VaultModal({ isOpen, onClose, onSave, activity = null })
     setContent('');
     setUrl('');
     setImage(null);
+    if (preview && !currentImageUrl) URL.revokeObjectURL(preview);
     setPreview(null);
     setType('note');
     setCurrentImageUrl('');
+    setProgress(0);
   };
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setImage(file);
-      setPreview(URL.createObjectURL(file));
+      // 500KB Limit for Base64 efficiency
+      if (file.size > 0.5 * 1024 * 1024) {
+        alert("File terlalu besar untuk Database. Maksimal 500KB (Gunakan screenshot atau file kompres).");
+        e.target.value = "";
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result); // This is the Base64 string
+        setPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -54,15 +69,11 @@ export default function VaultModal({ isOpen, onClose, onSave, activity = null })
     if (!title.trim()) return;
 
     setUploading(true);
-    let finalImageUrl = currentImageUrl;
+    setProgress(50); // Simulative progress for Base64
 
     try {
-      // Only upload if it's a NEW image (not existing from edit)
-      if (image) {
-        const storageRef = ref(storage, `vault/${Date.now()}_${image.name}`);
-        const uploadTask = await uploadBytesResumable(storageRef, image);
-        finalImageUrl = await getDownloadURL(uploadTask.ref);
-      }
+      // Image is already in Base64 format if selected
+      const finalImageUrl = image || currentImageUrl;
 
       onSave({
         type: 'vault',
@@ -73,12 +84,14 @@ export default function VaultModal({ isOpen, onClose, onSave, activity = null })
         imageUrl: finalImageUrl,
       }, activity?.id);
 
+      setProgress(100);
       onClose();
     } catch (error) {
-      console.error("Upload failed:", error);
-      alert("Failed to save. Please try again.");
+      console.error("Vault operation failed:", error);
+      alert(`Gagal menyimpan: ${error.message}`);
     } finally {
       setUploading(false);
+      setProgress(0);
     }
   };
 
@@ -179,18 +192,34 @@ export default function VaultModal({ isOpen, onClose, onSave, activity = null })
                 </div>
                 <div className="text-center">
                   <p className="text-sm font-bold text-slate-300">Upload Image</p>
-                  <p className="text-[10px]">PNG, JPG or SVG (Max 5MB)</p>
+                  <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">Maksimal 500KB (Base64 Mode)</p>
                 </div>
               </button>
             ) : (
-              <div className="relative group rounded-2xl overflow-hidden border border-slate-800 bg-slate-900">
-                <img src={preview} alt="Upload Preview" className="w-full h-48 object-cover opacity-80" />
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="relative group rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 cursor-zoom-in">
+                <img 
+                  src={preview} 
+                  alt="Upload Preview" 
+                  className="w-full h-48 object-cover opacity-80" 
+                  onClick={() => setIsZoomed(true)}
+                />
+                <div className="absolute top-2 right-2 flex gap-2">
+                   <button 
+                     onClick={() => setIsZoomed(true)}
+                     className="p-2 bg-black/60 rounded-lg text-white hover:bg-black/80 transition-colors"
+                   >
+                     <Upload size={14} className="rotate-45" />
+                   </button>
+                </div>
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                   <p className="text-[10px] font-bold text-white uppercase tracking-widest">Click to Zoom</p>
+                </div>
+                <div className="p-3 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent">
                   <button 
                     onClick={() => { setPreview(null); setImage(null); setCurrentImageUrl(''); }} 
-                    className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg"
+                    className="flex items-center gap-1.5 text-red-400 text-[10px] font-black uppercase tracking-wider"
                   >
-                    <Trash2 size={14} /> Remove Media
+                    <Trash2 size={12} /> Remove
                   </button>
                 </div>
               </div>
@@ -198,6 +227,23 @@ export default function VaultModal({ isOpen, onClose, onSave, activity = null })
             <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
           </div>
         </div>
+
+        {/* Full Screen Zoom Overlay */}
+        {isZoomed && (
+          <div 
+            className="fixed inset-0 z-[1100] bg-black/95 flex items-center justify-center p-4 lg:p-12 animate-fade-in cursor-zoom-out"
+            onClick={() => setIsZoomed(false)}
+          >
+            <img 
+              src={preview} 
+              alt="Full Preview" 
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-scale-up" 
+            />
+            <button className="absolute top-10 right-10 p-3 bg-white/10 rounded-full text-white">
+              <X size={24} />
+            </button>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="p-6 bg-slate-900/80 border-t border-slate-800 flex gap-3">
@@ -217,10 +263,15 @@ export default function VaultModal({ isOpen, onClose, onSave, activity = null })
             }}
           >
             {uploading ? (
-              <>
-                <Loader2 size={20} className="animate-spin" />
-                Processing...
-              </>
+              <div className="flex flex-col items-center gap-1 w-full">
+                <div className="flex items-center gap-2">
+                  <Loader2 size={18} className="animate-spin" />
+                  <span className="text-sm font-bold">{progress < 100 ? `Uploading ${progress}%` : 'Finalizing...'}</span>
+                </div>
+                <div className="w-full h-1 bg-white/10 rounded-full mt-1 overflow-hidden">
+                   <div className="h-full bg-white transition-all duration-300" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
             ) : (
               <>{activity ? 'Update Item' : 'Save to Vault'}</>
             )}
