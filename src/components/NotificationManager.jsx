@@ -14,12 +14,14 @@ export default function NotificationManager() {
   const activeAlarmsRef = useRef([]); 
   const audioRef = useRef(null);
 
-  // Sync ref for interval access
+  useEffect(() => {
+    console.log("🔔 [NotificationManager] Current Status:", { permission, hasToken: !!token });
+  }, [permission, token]);
+
   useEffect(() => {
     activeAlarmsRef.current = activeAlarms;
   }, [activeAlarms]);
 
-  // Handle foreground messages
   useEffect(() => {
     if (currentUser) {
       const unsubscribe = initForegroundListener();
@@ -27,7 +29,6 @@ export default function NotificationManager() {
     }
   }, [currentUser, initForegroundListener]);
 
-  // Detect if on Mobile and not installed
   useEffect(() => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
@@ -36,7 +37,7 @@ export default function NotificationManager() {
     }
   }, []);
 
-  // Task Checking Loop (Local Alarm)
+  // Task Checking Loop
   useEffect(() => {
     if (!currentUser) return;
 
@@ -60,15 +61,24 @@ export default function NotificationManager() {
 
           const diffMins = (deadline - now) / 60000;
 
-          // Trigger local alarm at T-minute
-          if (diffMins <= 0 && diffMins > -15) { 
+          // TRIGGER LOGIC: Bunyi 15 menit sebelum (Upcoming) atau Pas Hari H
+          if (diffMins <= 15 && diffMins > -10) { 
             if (!activeAlarmsRef.current.some(a => a.id === task.id)) {
+              console.log("🚨 [NotificationManager] Triggering Alarm for:", task.title);
               alarmsToTrigger.push(task);
               playAlertSound();
+              
+              // Push Browser Notification
+              if (Notification.permission === 'granted') {
+                new Notification(`🚨 Nexus Alert: ${task.title}`, {
+                  body: diffMins > 0 ? `Dimulai dalam ${Math.round(diffMins)} menit!` : `Sedang berlangsung!`,
+                  icon: '/favicon.svg'
+                });
+              }
             }
           }
         } catch (e) {
-          console.error('[NotificationManager] Check error:', e);
+          console.error('[NotificationManager] Error:', e);
         }
       });
 
