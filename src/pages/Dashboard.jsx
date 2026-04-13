@@ -1,19 +1,21 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useTasks } from '../hooks/useTasks';
 import { useTimer } from '../hooks/useTimer';
-import SpotifyPlayer from '../components/SpotifyPlayer';
-import ActivityModal from '../components/ActivityModal';
-import AddHubModal from '../components/AddHubModal';
-import VaultModal from '../components/VaultModal';
 import {
   Plus, Trash2, ExternalLink, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, Flame, Clock, Coffee, BarChart3,
   Link2, CalendarDays, RotateCcw, Play, Pause, X, Pencil,
   StickyNote, Lightbulb, Library, Image as ImageIcon, Search
 } from 'lucide-react';
+
+// Lazy load heavy components
+const SpotifyPlayer = lazy(() => import('../components/SpotifyPlayer'));
+const ActivityModal = lazy(() => import('../components/ActivityModal'));
+const AddHubModal = lazy(() => import('../components/AddHubModal'));
+const VaultModal = lazy(() => import('../components/VaultModal'));
 
 const TaskIcon = ({ size = 16, className = "" }) => (
   <img 
@@ -40,11 +42,18 @@ const priorityConfig = {
 
 const TABS = [
   { key: 'all',    label: 'All' },
+  { key: 'task',   label: 'Tasks' },
+  { key: 'event',  label: 'Events' },
   { key: 'active', label: 'Active' },
   { key: 'done',   label: 'Done' },
   { key: 'high',   label: '🔥 Priority' },
-  { key: 'task',   label: 'Tasks' },
-  { key: 'event',  label: 'Events' },
+];
+
+const VAULT_TABS = [
+  { key: 'all',      label: 'All' },
+  { key: 'note',     label: 'Notes' },
+  { key: 'idea',     label: 'Ideas' },
+  { key: 'learning', label: 'Learning' },
 ];
 
 const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -181,6 +190,7 @@ export default function Dashboard() {
   const { activities, loading, addActivity, updateActivity, toggleTask, deleteTask, purgeCompleted, addPortal } = useTasks();
 
   const [activeTab, setActiveTab]       = useState('all');
+  const [vaultActiveTab, setVaultActiveTab] = useState('all');
   const [isModalOpen, setIsModalOpen]   = useState(false);
   const [isHubModalOpen, setIsHubModalOpen] = useState(false);
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
@@ -249,12 +259,16 @@ export default function Dashboard() {
   );
 
   const filteredVault = useMemo(() => {
-    if (!vaultSearch) return vaultItems;
-    return vaultItems.filter(v => 
+    let items = vaultItems;
+    if (vaultActiveTab !== 'all') {
+      items = items.filter(v => v.vaultType === vaultActiveTab);
+    }
+    if (!vaultSearch) return items;
+    return items.filter(v => 
       v.title?.toLowerCase().includes(vaultSearch.toLowerCase()) || 
       v.content?.toLowerCase().includes(vaultSearch.toLowerCase())
     );
-  }, [vaultItems, vaultSearch]);
+  }, [vaultItems, vaultSearch, vaultActiveTab]);
 
   const filteredQueue = useMemo(() => {
     switch (activeTab) {
@@ -452,7 +466,9 @@ export default function Dashboard() {
         {/* Audio */}
         <div style={card} className="p-4">
           <p style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '13px', marginBottom: '10px' }}>Focus Audio</p>
-          <SpotifyPlayer ref={spotifyRef} />
+          <Suspense fallback={<div className="h-[152px] animate-pulse bg-white/5 rounded-xl" />}>
+            <SpotifyPlayer ref={spotifyRef} />
+          </Suspense>
         </div>
 
         {/* ── MOBILE ONLY: Portals & Stats (Interactive) ── */}
@@ -645,8 +661,8 @@ export default function Dashboard() {
         </div>
 
         {/* ── Nexus Vault Section ── */}
-        <div style={{ ...card, padding: '24px' }}>
-          <div className="flex items-center justify-between mb-6">
+        <div style={{ ...card, padding: '24px', display: 'flex', flexDirection: 'column', minHeight: '500px' }}>
+          <div className="flex items-center justify-between mb-5 pb-4 border-b border-[var(--border)]">
             <div>
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <span className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl"><Library size={18} /></span>
@@ -657,21 +673,30 @@ export default function Dashboard() {
             <button onClick={() => { setEditTarget(null); setIsVaultModalOpen(true); }} className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/30 hover:bg-indigo-600 transition-all">Capture</button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {vaultItems.length === 0 ? (
-              <div className="col-span-full py-12 flex flex-col items-center justify-center opacity-40 border-2 border-dashed border-[var(--border)] rounded-2xl">
-                <p className="text-sm font-bold">Vault is empty</p>
+          <div className="flex gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hide">
+            {VAULT_TABS.map(tab => (
+              <button key={tab.key} onClick={() => setVaultActiveTab(tab.key)} className="whitespace-nowrap px-4 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                style={vaultActiveTab === tab.key ? { background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)' } : { color: 'var(--text-muted)' }}>{tab.label}</button>
+            ))}
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-4 pr-0.5">
+            {filteredVault.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center opacity-40 border-2 border-dashed border-[var(--border)] rounded-2xl">
+                <p className="text-sm font-bold">No items found</p>
                 <p className="text-[10px] mt-1">Start capturing your brilliance.</p>
               </div>
             ) : (
-              vaultItems.map(item => (
-                <VaultCard 
-                  key={item.id} 
-                  item={item} 
-                  openEditModal={openEditModal} 
-                  deleteTask={deleteTask} 
-                />
-              ))
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredVault.map(item => (
+                  <VaultCard 
+                    key={item.id} 
+                    item={item} 
+                    openEditModal={openEditModal} 
+                    deleteTask={deleteTask} 
+                  />
+                ))}
+              </div>
             )}
           </div>
         </div>
@@ -790,28 +815,35 @@ export default function Dashboard() {
             })}
           </div>
         </div>
-
       </section>
 
-      {/* Modals */}
-      <ActivityModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSave={handleSaveActivity} 
-        activity={editTarget}
-      />
-      <AddHubModal 
-        isOpen={isHubModalOpen} 
-        onClose={() => setIsHubModalOpen(false)} 
-        onSave={handleSavePortal} 
-        portal={portalEditTarget}
-      />
-      <VaultModal 
-        isOpen={isVaultModalOpen} 
-        onClose={() => setIsVaultModalOpen(false)} 
-        onSave={handleSaveActivity} 
-        activity={editTarget}
-      />
+      {/* Modals - Lazy Loaded for Memory Efficiency */}
+      <Suspense fallback={null}>
+        {isModalOpen && (
+          <ActivityModal 
+            isOpen={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+            onSave={handleSaveActivity} 
+            activity={editTarget}
+          />
+        )}
+        {isHubModalOpen && (
+          <AddHubModal 
+            isOpen={isHubModalOpen} 
+            onClose={() => setIsHubModalOpen(false)} 
+            onSave={handleSavePortal}
+            portal={portalEditTarget}
+          />
+        )}
+        {isVaultModalOpen && (
+          <VaultModal 
+            isOpen={isVaultModalOpen} 
+            onClose={() => setIsVaultModalOpen(false)} 
+            onSave={handleSaveActivity}
+            activity={editTarget}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }

@@ -10,12 +10,10 @@ export function useTimer(onComplete) {
   
   const timerRef = useRef(null);
 
-  // Sync initial time when setting changes or mode changes, ONLY if timer is not active!
+  // Sync initial time when setting changes or mode changes
   useEffect(() => {
-    if (!isActive) {
-      setTimeLeft((mode === 'focus' ? focusDuration : breakDuration) * 60);
-    }
-  }, [focusDuration, breakDuration, mode, isActive]);
+    setTimeLeft((mode === 'focus' ? focusDuration : breakDuration) * 60);
+  }, [focusDuration, breakDuration, mode]);
 
   useEffect(() => {
     if (isActive && timeLeft > 0) {
