@@ -21,6 +21,8 @@ export function useTimer(onComplete) {
     } else if (timeLeft === 0 && isActive) {
       clearInterval(timerRef.current);
       setIsActive(false);
+      // Reset to original duration when finished
+      setTimeLeft((mode === 'focus' ? focusDuration : breakDuration) * 60);
       if (onComplete) onComplete(mode);
     }
     return () => clearInterval(timerRef.current);

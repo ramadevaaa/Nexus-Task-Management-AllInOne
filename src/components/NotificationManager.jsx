@@ -100,9 +100,42 @@ export default function NotificationManager() {
     } catch (err) {}
   };
 
+  // Global Alarm Listener (for Pomodoro, etc.)
+  useEffect(() => {
+    const handleGlobalAlarm = (e) => {
+      const alarmData = e.detail;
+      if (!alarmData) return;
+
+      console.log("🚨 [NotificationManager] Global Alarm Received:", alarmData.title);
+      
+      // Add to active alarms list
+      setActiveAlarms(prev => {
+        if (prev.some(a => a.id === alarmData.id)) return prev;
+        return [...prev, alarmData];
+      });
+
+      // Play Sound
+      playAlertSound();
+
+      // Browser Notification
+      if (Notification.permission === 'granted') {
+        new Notification(`🚨 Nexus Alert: ${alarmData.title}`, {
+          body: `Time's up! Check your terminal.`,
+          icon: '/favicon.svg'
+        });
+      }
+    };
+
+    window.addEventListener('nexus:trigger-alarm', handleGlobalAlarm);
+    return () => window.removeEventListener('nexus:trigger-alarm', handleGlobalAlarm);
+  }, []);
+
   const stopAlarm = (taskId) => {
     setActiveAlarms(prev => prev.filter(t => t.id !== taskId));
-    markTaskNotified(taskId);
+    // Only mark as notified if it's a real activity ID (starts with Firestore ID length usually, not 'pomo-')
+    if (taskId && typeof taskId === 'string' && !taskId.startsWith('pomo-')) {
+      markTaskNotified(taskId);
+    }
   };
 
   return (
