@@ -1,63 +1,42 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTasks } from '../hooks/useTasks';
 import { useAuth } from '../contexts/AuthContext';
-import { BellRing } from 'lucide-react';
+import { BellRing, Smartphone, ShieldCheck, X } from 'lucide-react';
+import { useNotifications } from '../hooks/useNotifications';
 
 export default function NotificationManager() {
   const { activities, markTaskNotified } = useTasks();
   const { currentUser } = useAuth();
+  const { permission, token, requestPermission, initForegroundListener } = useNotifications(currentUser);
   
   const [activeAlarms, setActiveAlarms] = useState([]);
-  const [permission, setPermission] = useState('default');
+  const [showPWAHint, setShowPWAHint] = useState(false);
   const activeAlarmsRef = useRef([]); 
-  const lastPushAt = useRef({}); 
   const audioRef = useRef(null);
 
-  // Sync ref
+  // Sync ref for interval access
   useEffect(() => {
     activeAlarmsRef.current = activeAlarms;
   }, [activeAlarms]);
 
-  // Sync Permission
+  // Handle foreground messages
   useEffect(() => {
-    if ('Notification' in window) {
-      setPermission(Notification.permission);
+    if (currentUser) {
+      const unsubscribe = initForegroundListener();
+      return () => unsubscribe();
+    }
+  }, [currentUser, initForegroundListener]);
+
+  // Detect if on Mobile and not installed
+  useEffect(() => {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isMobile && !isStandalone) {
+      setShowPWAHint(true);
     }
   }, []);
 
-  const requestPermission = () => {
-    if ('Notification' in window) {
-      Notification.requestPermission().then(status => {
-        setPermission(status);
-        console.log('🔔 [NotificationManager] Permission status updated:', status);
-      });
-    }
-  };
-
-  // 1. Stable Event Listener (Independent of activities)
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const handleManualAlarm = (e) => {
-      const alarmData = e.detail;
-      console.log('🔔 [NotificationManager] Event received:', alarmData);
-      if (!alarmData) return;
-
-      setActiveAlarms(prev => {
-        if (prev.some(a => a.id === alarmData.id)) return prev;
-        return [...prev, alarmData];
-      });
-
-      // Side Effects
-      playAlertSound();
-      triggerSystemNotification(`🚨 Nexus Alert: ${alarmData.title}`, alarmData.title, alarmData.id);
-    };
-
-    window.addEventListener('nexus:trigger-alarm', handleManualAlarm);
-    return () => window.removeEventListener('nexus:trigger-alarm', handleManualAlarm);
-  }, [currentUser]);
-
-  // 2. Task Checking Loop
+  // Task Checking Loop (Local Alarm)
   useEffect(() => {
     if (!currentUser) return;
 
@@ -67,15 +46,10 @@ export default function NotificationManager() {
       const alarmsToTrigger = [];
 
       activities.forEach(task => {
-        // SAFETY: Ignore incomplete or completed tasks
         if (!task || !task.id || task.isCompleted || task.notified30Min) return;
         
-        const isTask = task.type === 'task';
-        const isEvent = task.type === 'event';
-        if (!isTask && !isEvent) return;
-
-        const dateVal = isTask ? task.deadlineDate : task.date;
-        const timeVal = isTask ? task.deadlineTime : task.time;
+        const dateVal = task.type === 'task' ? task.deadlineDate : task.date;
+        const timeVal = task.type === 'task' ? task.deadlineTime : task.time;
         if (!dateVal || !timeVal) return;
 
         try {
@@ -86,157 +60,114 @@ export default function NotificationManager() {
 
           const diffMins = (deadline - now) / 60000;
 
-          // SPAM LOGIC: Start at T-15 minutes
-          const thresholdMins = 15;
-          if (diffMins <= thresholdMins && diffMins > -1440) { // Limit to 24h past
-            const lastPush = lastPushAt.current[task.id] || 0;
-            const minsSinceLast = (now.getTime() - lastPush) / 60000;
-            const isCurrentActive = activeAlarmsRef.current.some(a => a.id === task.id);
-
-            // Trigger if not in UI yet OR it's been 15 minutes since last system notification
-            if (!isCurrentActive || minsSinceLast >= 15) {
-              lastPushAt.current[task.id] = now.getTime();
-
-              if (!isCurrentActive) {
-                console.log('🔔 [NotificationManager] Task/Event Triggered (New):', task.title);
-                alarmsToTrigger.push(task);
-              } else {
-                console.log('🔔 [NotificationManager] Task/Event Spammed:', task.title);
-              }
-
-              // Side Effects
+          // Trigger local alarm at T-minute
+          if (diffMins <= 0 && diffMins > -15) { 
+            if (!activeAlarmsRef.current.some(a => a.id === task.id)) {
+              alarmsToTrigger.push(task);
               playAlertSound();
-              const bodyText = diffMins > 0 
-                ? `Upcoming in ${Math.round(diffMins)} mins` 
-                : `Active now! Scheduled for ${timeVal}`;
-              triggerSystemNotification(`🚨 Nexus Alert: ${task.title}`, bodyText, task.id);
             }
           }
         } catch (e) {
-          console.error('🔔 [NotificationManager] Error processing task:', task.id, e);
+          console.error('[NotificationManager] Check error:', e);
         }
       });
 
       if (alarmsToTrigger.length > 0) {
-        setActiveAlarms(prev => {
-          const reallyNew = alarmsToTrigger.filter(na => !prev.some(p => p.id === na.id));
-          return [...prev, ...reallyNew];
-        });
+        setActiveAlarms(prev => [...prev, ...alarmsToTrigger]);
       }
-    }, 2000);
+    }, 5000);
 
     return () => clearInterval(checkInterval);
   }, [activities, currentUser]);
-
-  const triggerSystemNotification = (title, body, tag) => {
-    if (!('Notification' in window)) return;
-    if (Notification.permission === 'granted') {
-      try {
-        new Notification(title, {
-          body, tag,
-          requireInteraction: true,
-          vibrate: [200, 100, 200],
-          icon: '/favicon.svg'
-        });
-      } catch (e) { console.error('Notification failed', e); }
-    }
-  };
 
   const playAlertSound = () => {
     try {
       if (!audioRef.current) {
         audioRef.current = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
-      } else {
-        audioRef.current.pause();
       }
       audioRef.current.currentTime = 0;
-      audioRef.current.loop = false;
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-          playPromise.catch(e => console.warn('Audio play blocked:', e));
-      }
-    } catch (err) { console.error('Audio play error:', err); }
+      audioRef.current.play().catch(e => console.warn('Audio blocked', e));
+    } catch (err) {}
   };
 
   const stopAlarm = (taskId) => {
     setActiveAlarms(prev => prev.filter(t => t.id !== taskId));
-    if (!taskId.toString().startsWith('pomo-')) {
-      markTaskNotified(taskId);
-    }
-    delete lastPushAt.current[taskId];
+    markTaskNotified(taskId);
   };
 
-  // UI rendering
   return (
     <>
-      {/* Permission Reminder */}
+      {/* 1. Request Permission Banner */}
       {permission === 'default' && (
-        <div style={{
-          position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 100000, width: '92%', maxWidth: '350px',
-          backgroundColor: '#1d4ed8', color: 'white', padding: '12px 20px', borderRadius: '16px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '15px'
-        }}>
-          <div style={{ flex: 1, fontSize: '12px', fontWeight: 600 }}>
-            🔔 Allow notifications to hear the signal.
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[99999] w-[92%] max-w-[400px] animate-slide-down">
+          <div className="bg-indigo-600 rounded-3xl p-5 shadow-2x border border-white/20 flex flex-col gap-4">
+            <div className="flex gap-4">
+              <div className="p-3 bg-white/10 rounded-2xl">
+                <ShieldCheck size={24} className="text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-bold text-white text-sm">Security & Mission Alert</p>
+                <p className="text-white/70 text-[11px] font-medium leading-relaxed mt-1">
+                  Nexus needs permission to sync your mission reminders to this device.
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={requestPermission}
+              className="w-full bg-white text-indigo-600 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              Enable Missions Alert
+            </button>
           </div>
-          <button 
-            onClick={requestPermission}
-            style={{ 
-              backgroundColor: 'white', color: '#1d4ed8', border: 'none', 
-              padding: '8px 16px', borderRadius: '10px', fontSize: '11px', 
-              fontWeight: 800, cursor: 'pointer' 
-            }}>
-            Enable
-          </button>
         </div>
       )}
 
+      {/* 2. PWA Installation Hint (Only on Mobile Browser) */}
+      {showPWAHint && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[99999] w-[92%] max-w-[400px]">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 shadow-2xl flex items-center gap-4">
+             <div className="p-3 bg-blue-500/10 rounded-xl text-blue-500">
+                <Smartphone size={20} />
+             </div>
+             <div className="flex-1">
+                <p className="text-[11px] font-bold text-white">Install Nexus to Home Screen</p>
+                <p className="text-[9px] text-slate-400 font-medium mt-0.5">Required for background reminders on iOS/Android.</p>
+             </div>
+             <button onClick={() => setShowPWAHint(false)} className="p-1.5 text-slate-600"><X size={16} /></button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Active Alarm Popups */}
       {activeAlarms.length > 0 && (
-        <div style={{
-          position: 'fixed', bottom: '110px', left: '50%', transform: 'translateX(-50%)',
-          zIndex: 99999, display: 'flex', flexDirection: 'column', gap: '12px', width: '92%', maxWidth: '400px',
-          pointerEvents: 'none'
-        }}>
+        <div className="fixed bottom-32 left-1/2 -translate-x-1/2 z-[100000] flex flex-col gap-3 w-[92%] max-w-[420px]">
           {activeAlarms.map((task) => (
-            <div key={task.id} className="animate-slide-up" style={{
-              backgroundColor: '#0f172a', color: 'white', padding: '20px', borderRadius: '24px',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.6)', 
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              pointerEvents: 'auto', border: '1px solid #3b82f6', gap: '15px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: 1, minWidth: 0 }}>
-                <div style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', padding: '12px', borderRadius: '16px' }}>
+            <div key={task.id} className="bg-[#0f172a] border-2 border-indigo-500 rounded-3xl p-5 shadow-2xl flex items-center justify-between gap-4 animate-slide-up">
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                <div className="p-3 bg-indigo-500 rounded-2xl text-white">
                   <BellRing size={24} className="animate-ring" />
                 </div>
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ fontSize: '11px', fontWeight: 800, color: '#60a5fa', textTransform: 'uppercase' }}>
-                    {task.type === 'pomodoro' ? 'Timer' : task.type === 'event' ? 'Event (~30m)' : 'Deadline'}
-                  </p>
-                  <p style={{ fontSize: '15px', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {task.title}
-                  </p>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-tighter">Mission Critical</p>
+                  <p className="text-base font-bold text-white truncate">{task.title}</p>
                 </div>
               </div>
               <button 
                 onClick={() => stopAlarm(task.id)} 
-                className="hover:scale-105 active:scale-95 transition-all" 
-                style={{
-                  background: '#ef4444', color: 'white', border: 'none', borderRadius: '15px',
-                  padding: '12px 24px', fontSize: '14px', fontWeight: 900, cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(239,68,68,0.4)', textShadow: '0 1px 2px rgba(0,0,0,0.2)'
-                }}>
-                STOP
+                className="bg-red-500 text-white font-black text-xs py-4 px-8 rounded-2xl shadow-lg shadow-red-500/30 hover:scale-105 active:scale-95 transition-all"
+              >
+                DISMISSED
               </button>
             </div>
           ))}
         </div>
       )}
+
       <style>{`
-        @keyframes ring { 0% { transform: rotate(0); } 10% { transform: rotate(15deg); } 20% { transform: rotate(-15deg); } 30% { transform: rotate(15deg); } 40% { transform: rotate(-15deg); } 50% { transform: rotate(0); } 100% { transform: rotate(0); } }
+        @keyframes slide-down { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        .animate-slide-down { animation: slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
         .animate-ring { animation: ring 1.5s infinite ease-in-out; }
-        .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes ring { 0% { transform: rotate(0); } 10% { transform: rotate(15deg); } 20% { transform: rotate(-15deg); } 30% { transform: rotate(15deg); } 40% { transform: rotate(-15deg); } 100% { transform: rotate(0); } }
       `}</style>
     </>
   );
