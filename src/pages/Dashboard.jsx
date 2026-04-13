@@ -18,11 +18,11 @@ const AddHubModal = lazy(() => import('../components/AddHubModal'));
 const VaultModal = lazy(() => import('../components/VaultModal'));
 
 const TaskIcon = ({ size = 16, className = "" }) => (
-  <img 
-    src="/task.svg" 
-    alt="Task" 
-    style={{ width: size, height: size }} 
-    className={`invert brightness-0 invert-[1] ${className}`} 
+  <img
+    src="/task.svg"
+    alt="Task"
+    style={{ width: size, height: size }}
+    className={`invert brightness-0 invert-[1] ${className}`}
   />
 );
 
@@ -35,28 +35,28 @@ const greeting = () => {
 };
 
 const priorityConfig = {
-  high: { label: 'High',   dot: 'bg-red-500',    text: 'text-red-500',    ring: 'border-red-500/40',  bg: 'bg-red-500/8' },
-  mid:  { label: 'Mid',    dot: 'bg-yellow-500', text: 'text-yellow-500', ring: 'border-yellow-500/40',bg: 'bg-yellow-500/8' },
-  low:  { label: 'Low',    dot: 'bg-green-500',  text: 'text-green-500',  ring: 'border-green-500/40', bg: 'bg-green-500/8' },
+  high: { label: 'High', dot: 'bg-red-500', text: 'text-red-500', ring: 'border-red-500/40', bg: 'bg-red-500/8' },
+  mid: { label: 'Mid', dot: 'bg-yellow-500', text: 'text-yellow-500', ring: 'border-yellow-500/40', bg: 'bg-yellow-500/8' },
+  low: { label: 'Low', dot: 'bg-green-500', text: 'text-green-500', ring: 'border-green-500/40', bg: 'bg-green-500/8' },
 };
 
 const TABS = [
-  { key: 'all',    label: 'All' },
-  { key: 'task',   label: 'Tasks' },
-  { key: 'event',  label: 'Events' },
+  { key: 'all', label: 'All' },
+  { key: 'task', label: 'Tasks' },
+  { key: 'event', label: 'Events' },
   { key: 'active', label: 'Active' },
-  { key: 'done',   label: 'Done' },
-  { key: 'high',   label: '🔥 Priority' },
+  { key: 'done', label: 'Done' },
+  { key: 'high', label: '🔥 Priority' },
 ];
 
 const VAULT_TABS = [
-  { key: 'all',      label: 'All' },
-  { key: 'note',     label: 'Notes' },
-  { key: 'idea',     label: 'Ideas' },
+  { key: 'all', label: 'All' },
+  { key: 'note', label: 'Notes' },
+  { key: 'idea', label: 'Ideas' },
   { key: 'learning', label: 'Learning' },
 ];
 
-const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /* ─── Link Detection Helper ─── */
 const renderTextWithLinks = (text) => {
@@ -64,15 +64,15 @@ const renderTextWithLinks = (text) => {
   // Simple regex to catch common http/https links
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const parts = text.split(urlRegex);
-  
+
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
       return (
-        <a 
-          key={i} 
-          href={part} 
-          target="_blank" 
-          rel="noopener noreferrer" 
+        <a
+          key={i}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
           className="text-blue-400 hover:text-blue-300 underline underline-offset-2 break-all decoration-blue-500/30"
           onClick={(e) => e.stopPropagation()}
         >
@@ -106,17 +106,17 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
 
   return (
     <div className="group relative bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-2xl overflow-hidden hover:border-indigo-500/30 transition-all h-fit">
-      
+
       {/* Actions Overlay */}
       <div className="absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-all duration-300">
-        <button 
-          onClick={(e) => { e.stopPropagation(); openEditModal(item); }} 
+        <button
+          onClick={(e) => { e.stopPropagation(); openEditModal(item); }}
           className="p-2 bg-white/10 backdrop-blur-md border border-white/20 text-blue-400 hover:bg-blue-400 hover:text-white rounded-xl transition-all shadow-lg"
         >
           <Pencil size={14} />
         </button>
-        <button 
-          onClick={(e) => { e.stopPropagation(); deleteTask(item.id); }} 
+        <button
+          onClick={(e) => { e.stopPropagation(); deleteTask(item.id); }}
           className="p-2 bg-white/10 backdrop-blur-md border border-white/20 text-red-400 hover:bg-red-400 hover:text-white rounded-xl transition-all shadow-lg"
         >
           <Trash2 size={14} />
@@ -134,21 +134,21 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
         <div className="flex justify-between items-start gap-2 mb-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl flex-shrink-0">
-               {item.vaultType === 'idea' ? <Lightbulb size={16} /> : item.vaultType === 'learning' ? <Library size={16} /> : <StickyNote size={16} />}
+              {item.vaultType === 'idea' ? <Lightbulb size={16} /> : item.vaultType === 'learning' ? <Library size={16} /> : <StickyNote size={16} />}
             </span>
             <h4 className="font-bold text-sm truncate text-[var(--text-main)]">{item.title}</h4>
           </div>
         </div>
-        
+
         <div className="relative">
-          <p 
+          <p
             ref={textRef}
             className={`text-xs text-[var(--text-muted)] leading-relaxed whitespace-pre-wrap transition-all duration-300 ${isExpanded ? '' : 'line-clamp-3'}`}
           >
             {renderTextWithLinks(item.content)}
           </p>
           {(isTruncated || isExpanded) && (
-            <button 
+            <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="mt-2.5 px-3 py-1 bg-indigo-500/5 hover:bg-indigo-500/10 rounded-lg text-[10px] font-bold text-indigo-400 transition-all border border-indigo-500/10"
             >
@@ -158,22 +158,22 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
         </div>
 
         {item.url && (
-           <a href={item.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 bg-slate-800/50 rounded-lg text-[10px] font-bold text-indigo-400 hover:bg-slate-800 transition-all border border-slate-700/50">
-              Open Resource <ExternalLink size={10} />
-           </a>
+          <a href={item.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 bg-slate-800/50 rounded-lg text-[10px] font-bold text-indigo-400 hover:bg-slate-800 transition-all border border-slate-700/50">
+            Open Resource <ExternalLink size={10} />
+          </a>
         )}
       </div>
 
       {/* Full Screen Zoom Overlay */}
       {isZoomed && (
-        <div 
+        <div
           className="fixed inset-0 z-[1200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 lg:p-12 animate-fade-in cursor-zoom-out"
           onClick={() => setIsZoomed(false)}
         >
-          <img 
-            src={item.imageUrl} 
-            alt="Full Preview" 
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-scale-up" 
+          <img
+            src={item.imageUrl}
+            alt="Full Preview"
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-scale-up"
           />
           <button className="absolute top-10 right-10 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-all">
             <X size={24} />
@@ -189,9 +189,9 @@ export default function Dashboard() {
   const { operatorName } = useSettings();
   const { activities, loading, addActivity, updateActivity, toggleTask, deleteTask, purgeCompleted, addPortal } = useTasks();
 
-  const [activeTab, setActiveTab]       = useState('all');
+  const [activeTab, setActiveTab] = useState('all');
   const [vaultActiveTab, setVaultActiveTab] = useState('all');
-  const [isModalOpen, setIsModalOpen]   = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHubModalOpen, setIsHubModalOpen] = useState(false);
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
@@ -264,8 +264,8 @@ export default function Dashboard() {
       items = items.filter(v => v.vaultType === vaultActiveTab);
     }
     if (!vaultSearch) return items;
-    return items.filter(v => 
-      v.title?.toLowerCase().includes(vaultSearch.toLowerCase()) || 
+    return items.filter(v =>
+      v.title?.toLowerCase().includes(vaultSearch.toLowerCase()) ||
       v.content?.toLowerCase().includes(vaultSearch.toLowerCase())
     );
   }, [vaultItems, vaultSearch, vaultActiveTab]);
@@ -273,11 +273,11 @@ export default function Dashboard() {
   const filteredQueue = useMemo(() => {
     switch (activeTab) {
       case 'active': return queueItems.filter(t => !t.isCompleted);
-      case 'done':   return queueItems.filter(t => t.isCompleted);
-      case 'high':   return queueItems.filter(t => t.priority === 'high' && !t.isCompleted);
-      case 'task':   return queueItems.filter(t => t.type === 'task');
-      case 'event':  return queueItems.filter(t => t.type === 'event');
-      default:       return queueItems;
+      case 'done': return queueItems.filter(t => t.isCompleted);
+      case 'high': return queueItems.filter(t => t.priority === 'high' && !t.isCompleted);
+      case 'task': return queueItems.filter(t => t.type === 'task');
+      case 'event': return queueItems.filter(t => t.type === 'event');
+      default: return queueItems;
     }
   }, [queueItems, activeTab]);
 
@@ -285,16 +285,16 @@ export default function Dashboard() {
     const missions = queueItems.filter(a => a.type === 'task' || a.type === 'event');
     const total = missions.length;
     const completed = missions.filter(t => t.isCompleted).length;
-    
+
     // Breakdown
     const tasks = missions.filter(m => m.type === 'task');
     const events = missions.filter(m => m.type === 'event');
     const pendingTasks = tasks.filter(t => !t.isCompleted).length;
     const completedTasks = tasks.filter(t => t.isCompleted).length;
-    
-    return { 
-      total, 
-      completed, 
+
+    return {
+      total,
+      completed,
       pending: total - completed,
       rate: total === 0 ? 0 : Math.round((completed / total) * 100),
       tasksCount: tasks.length,
@@ -341,12 +341,12 @@ export default function Dashboard() {
   };
 
   const handleDeletePortal = async (id) => {
-     if (id === 'default_github') {
-        localStorage.setItem('nexus_dismiss_github', 'true');
-        setIsGithubDismissed(true);
-     } else {
-        await deleteTask(id);
-     }
+    if (id === 'default_github') {
+      localStorage.setItem('nexus_dismiss_github', 'true');
+      setIsGithubDismissed(true);
+    } else {
+      await deleteTask(id);
+    }
   };
 
   const openEditModal = (item) => {
@@ -391,12 +391,12 @@ export default function Dashboard() {
                   <div className={`p-1.5 rounded-lg flex-shrink-0 ${m.type === 'event' ? 'bg-indigo-400/30' : 'bg-blue-400/30'}`}>
                     {m.type === 'event' ? <CalendarDays size={14} className="text-white" /> : <TaskIcon size={14} className="brightness-200" />}
                   </div>
-                   <div className="min-w-0 flex-1">
-                     <p className="text-[11px] font-bold text-white truncate leading-none mb-1">{m.title}</p>
-                     <p className="text-[9px] font-medium text-white/50 truncate flex items-center gap-1">
-                       <CalendarDays size={8} /> {m.deadlineDate || m.date || 'Today'} • <Clock size={8} /> {m.deadlineTime || m.time || 'Anytime'}
-                     </p>
-                   </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold text-white truncate leading-none mb-1">{m.title}</p>
+                    <p className="text-[9px] font-medium text-white/50 truncate flex items-center gap-1">
+                      <CalendarDays size={8} /> {m.deadlineDate || m.date || 'Today'} • <Clock size={8} /> {m.deadlineTime || m.time || 'Anytime'}
+                    </p>
+                  </div>
                 </div>
               ))
             ) : (
@@ -423,49 +423,49 @@ export default function Dashboard() {
 
         {/* ── Focus Timer ── */}
         <div style={card} className="p-5">
-           <div className="flex items-center justify-between mb-4">
-              <p style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '14px' }}>Focus Timer</p>
-              <Clock size={16} style={{ color: 'var(--text-muted)' }} />
-           </div>
-           <div className="flex gap-1.5 mb-5 p-1 rounded-xl" style={cardDeep}>
-             {['focus', 'break'].map(m => (
-               <button key={m} onClick={() => switchMode(m)} className="flex-1 py-2 text-xs font-semibold rounded-lg transition-all capitalize"
-                 style={timerMode === m ? { background: '#3b82f6', color: '#fff' } : { color: 'var(--text-muted)' }}>{m}</button>
-             ))}
-           </div>
-           
-           <div className="flex justify-center mb-5">
-             <div className="relative w-36 h-36 flex items-center justify-center">
-                <svg className="absolute inset-0 w-full h-full -rotate-90">
-                  <circle cx="72" cy="72" r="64" fill="none" strokeWidth="6" style={{ stroke: 'var(--border)' }} />
-                  <circle cx="72" cy="72" r="64" fill="none" strokeWidth="6" stroke="#3b82f6" strokeLinecap="round"
-                    strokeDasharray={2 * Math.PI * 64}
-                    strokeDashoffset={2 * Math.PI * 64 * (1 - progressPct / 100)}
-                    className="transition-all duration-1000"
-                    style={{ filter: 'drop-shadow(0 0 6px rgba(59,130,246,0.6))' }}
-                  />
-                </svg>
-                <div className="text-center z-10">
-                  <p style={{ fontFamily: '"Space Mono", monospace', fontSize: '30px', fontWeight: 300, color: 'var(--text-main)', letterSpacing: '0.05em' }}>{formatTime}</p>
-                  <p className="text-xs font-semibold mt-1" style={{ color: isActive ? '#ef4444' : '#22c55e' }}>{isActive ? '● Active' : '○ Standby'}</p>
-                </div>
-             </div>
-           </div>
+          <div className="flex items-center justify-between mb-4">
+            <p style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '14px' }}>Focus Timer</p>
+            <Clock size={16} style={{ color: 'var(--text-muted)' }} />
+          </div>
+          <div className="flex gap-1.5 mb-5 p-1 rounded-xl" style={cardDeep}>
+            {['focus', 'break'].map(m => (
+              <button key={m} onClick={() => switchMode(m)} className="flex-1 py-2 text-xs font-semibold rounded-lg transition-all capitalize"
+                style={timerMode === m ? { background: '#3b82f6', color: '#fff' } : { color: 'var(--text-muted)' }}>{m}</button>
+            ))}
+          </div>
 
-           <div className="flex gap-2">
-             <button onClick={toggleTimer} className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all"
-               style={{ background: isActive ? 'rgba(239,68,68,0.12)' : '#3b82f6', color: isActive ? '#ef4444' : '#fff' }}>
-               {isActive ? 'Pause' : 'Start'}
-             </button>
-             <button onClick={resetTimer} className="px-4 py-2.5 rounded-xl border border-[var(--border)] text-[var(--text-muted)] bg-[var(--bg-deep)] transition-all">
-               <RotateCcw size={14} />
-             </button>
-           </div>
+          <div className="flex justify-center mb-5">
+            <div className="relative w-36 h-36 flex items-center justify-center">
+              <svg className="absolute inset-0 w-full h-full -rotate-90">
+                <circle cx="72" cy="72" r="64" fill="none" strokeWidth="6" style={{ stroke: 'var(--border)' }} />
+                <circle cx="72" cy="72" r="64" fill="none" strokeWidth="6" stroke="#3b82f6" strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 64}
+                  strokeDashoffset={2 * Math.PI * 64 * (1 - progressPct / 100)}
+                  className="transition-all duration-1000"
+                  style={{ filter: 'drop-shadow(0 0 6px rgba(59,130,246,0.6))' }}
+                />
+              </svg>
+              <div className="text-center z-10">
+                <p style={{ fontFamily: '"Space Mono", monospace', fontSize: '30px', fontWeight: 300, color: 'var(--text-main)', letterSpacing: '0.05em' }}>{formatTime}</p>
+                <p className="text-xs font-semibold mt-1" style={{ color: isActive ? '#ef4444' : '#22c55e' }}>{isActive ? '● Active' : '○ Standby'}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={toggleTimer} className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all"
+              style={{ background: isActive ? 'rgba(239,68,68,0.12)' : '#3b82f6', color: isActive ? '#ef4444' : '#fff' }}>
+              {isActive ? 'Pause' : 'Start'}
+            </button>
+            <button onClick={resetTimer} className="px-4 py-2.5 rounded-xl border border-[var(--border)] text-[var(--text-muted)] bg-[var(--bg-deep)] transition-all">
+              <RotateCcw size={14} />
+            </button>
+          </div>
         </div>
 
         {/* Audio */}
         <div style={card} className="p-4">
-          <p style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '13px', marginBottom: '10px' }}>Focus Audio</p>
+          <p style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '13px', marginBottom: '10px' }}>Nexus Music Player</p>
           <Suspense fallback={<div className="h-[152px] animate-pulse bg-white/5 rounded-xl" />}>
             <SpotifyPlayer ref={spotifyRef} />
           </Suspense>
@@ -481,14 +481,14 @@ export default function Dashboard() {
             </div>
             <div className={`grid ${isStatsExpanded ? 'grid-cols-4' : 'grid-cols-2'} gap-2`}>
               <NavLink to="/calendar" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl">
-                 <CalendarDays size={16} className="text-[var(--text-muted)]" />
-                 <span className="text-[8px] font-bold mt-1 text-[var(--text-muted)]">Cal</span>
+                <CalendarDays size={16} className="text-[var(--text-muted)]" />
+                <span className="text-[8px] font-bold mt-1 text-[var(--text-muted)]">Cal</span>
               </NavLink>
               {portals.slice(0, isStatsExpanded ? 6 : 2).map(p => (
                 <div key={p.id} className="relative group">
                   <a href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl h-full">
-                     {p.icon?.includes('/') ? <img src={p.icon} className="w-4 h-4 object-contain invert" /> : <span className="text-sm">{p.icon || '🔗'}</span>}
-                     <span className="text-[8px] font-bold truncate mt-1 w-full text-center">{p.title || 'Link'}</span>
+                    {p.icon?.includes('/') ? <img src={p.icon} className="w-4 h-4 object-contain invert" /> : <span className="text-sm">{p.icon || '🔗'}</span>}
+                    <span className="text-[8px] font-bold truncate mt-1 w-full text-center">{p.title || 'Link'}</span>
                   </a>
                   <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => openEditModal(p)} className="bg-blue-500 text-white rounded-full p-1 shadow-md"><Pencil size={8} /></button>
@@ -503,8 +503,8 @@ export default function Dashboard() {
           </div>
 
           {/* Mission Stats Minimal (Expandable) */}
-          <div 
-            style={card} 
+          <div
+            style={card}
             className={`p-3.5 flex flex-col transition-all duration-500 overflow-hidden ${isStatsExpanded ? 'w-full' : 'w-1/2'}`}
           >
             <div className="flex items-center justify-between mb-2.5">
@@ -513,7 +513,7 @@ export default function Dashboard() {
                 {isStatsExpanded ? <div className="text-[9px] font-bold">Collapse ↑</div> : <BarChart3 size={12} />}
               </button>
             </div>
-            
+
             {!isStatsExpanded ? (
               <div className="flex flex-col gap-2 animate-fade-in" onClick={() => setIsStatsExpanded(true)}>
                 <div className="flex gap-2">
@@ -533,33 +533,33 @@ export default function Dashboard() {
             ) : (
               <div className="grid grid-cols-2 gap-4 animate-fade-in-up py-1">
                 <div className="space-y-3">
-                   <div className="flex justify-between items-end">
-                      <p className="text-2xl font-black text-blue-500 tracking-tighter">{stats.rate}%</p>
-                      <p className="text-[9px] font-bold opacity-40 uppercase">Efficiency</p>
-                   </div>
-                   <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
-                     <div className="h-full bg-blue-500" style={{ width: `${stats.rate}%` }} />
-                   </div>
-                   <div className="flex flex-wrap gap-2 text-[8px] font-bold text-[var(--text-faint)]">
-                      <span className="flex items-center gap-1">● {stats.pending} Pending</span>
-                      <span className="flex items-center gap-1 text-green-500">✔ {stats.completed} Done</span>
-                   </div>
+                  <div className="flex justify-between items-end">
+                    <p className="text-2xl font-black text-blue-500 tracking-tighter">{stats.rate}%</p>
+                    <p className="text-[9px] font-bold opacity-40 uppercase">Efficiency</p>
+                  </div>
+                  <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500" style={{ width: `${stats.rate}%` }} />
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-[8px] font-bold text-[var(--text-faint)]">
+                    <span className="flex items-center gap-1">● {stats.pending} Pending</span>
+                    <span className="flex items-center gap-1 text-green-500">✔ {stats.completed} Done</span>
+                  </div>
                 </div>
                 <div className="bg-[var(--bg-deep)] rounded-2xl p-3 border border-[var(--border-soft)] flex flex-col justify-between">
-                   <div className="flex justify-between items-center mb-2">
-                      <span className="text-[9px] font-bold uppercase text-[var(--text-muted)]">Breakdown</span>
-                      <TaskIcon size={10} className="opacity-50" />
-                   </div>
-                   <div className="space-y-1.5">
-                      <div className="flex justify-between text-[11px] font-bold">
-                        <span className="text-[var(--text-muted)]">Tasks</span>
-                        <span className="text-[var(--text-main)]">{stats.tasksCount}</span>
-                      </div>
-                      <div className="flex justify-between text-[11px] font-bold">
-                        <span className="text-[var(--text-muted)]">Events</span>
-                        <span className="text-[var(--text-main)]">{stats.eventsCount}</span>
-                      </div>
-                   </div>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[9px] font-bold uppercase text-[var(--text-muted)]">Breakdown</span>
+                    <TaskIcon size={10} className="opacity-50" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[11px] font-bold">
+                      <span className="text-[var(--text-muted)]">Tasks</span>
+                      <span className="text-[var(--text-main)]">{stats.tasksCount}</span>
+                    </div>
+                    <div className="flex justify-between text-[11px] font-bold">
+                      <span className="text-[var(--text-muted)]">Events</span>
+                      <span className="text-[var(--text-main)]">{stats.eventsCount}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -570,7 +570,7 @@ export default function Dashboard() {
 
       {/* ════════════════ CENTER COL ════════════════ */}
       <section className="lg:col-span-6 space-y-5">
-        
+
         {/* Task Queue Card */}
         <div style={{ ...card, padding: '24px', display: 'flex', flexDirection: 'column', minHeight: '560px' }}>
           <div className="flex justify-between items-center mb-5 pb-4 border-b border-[var(--border)]">
@@ -609,41 +609,41 @@ export default function Dashboard() {
                       {item.isCompleted && <CheckCircle2 size={16} className="text-green-500" />}
                     </button>
                     <div className="flex-1 min-w-0">
-                       <div className="flex items-center gap-2.5 flex-wrap">
-                         <div className={`p-1.5 rounded-lg flex-shrink-0 ${item.type === 'event' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                           {item.type === 'event' ? <CalendarDays size={12} /> : <TaskIcon size={12} className="opacity-80" />}
-                         </div>
-                         <p className={`text-sm font-medium ${item.isCompleted ? 'line-through opacity-50' : ''}`}>{item.title}</p>
-                         
-                         {/* Priority badge */}
-                         {item.type === 'task' && !item.isCompleted && p && (
-                           <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold"
-                             style={{ background: item.priority === 'high' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)', color: item.priority === 'high' ? '#ef4444' : '#22c55e' }}>
-                             {p.label}
-                           </span>
-                         )}
-                       </div>
-                       
-                       {item.detail && <p className="text-xs text-[var(--text-muted)] mt-1 line-clamp-2 leading-relaxed">{renderTextWithLinks(item.detail)}</p>}
-                       {item.location && <p className="text-[10px] font-bold text-blue-500 mt-1 flex items-center gap-1"><ExternalLink size={10} /> {renderTextWithLinks(item.location)}</p>}
-                       
-                       {/* Deadline badges */}
-                       {!item.isCompleted && (item.deadlineDate || item.deadlineTime || item.date || item.time) && (
-                         <div className="flex flex-wrap gap-2 mt-2">
-                           {(item.deadlineDate || item.date) && (
-                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
-                               <CalendarDays size={10} /> {item.deadlineDate || item.date}
-                             </span>
-                           )}
-                           {(item.deadlineTime || item.time) && (
-                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
-                               <Clock size={10} /> {item.deadlineTime || item.time}
-                             </span>
-                           )}
-                         </div>
-                       )}
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className={`p-1.5 rounded-lg flex-shrink-0 ${item.type === 'event' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                          {item.type === 'event' ? <CalendarDays size={12} /> : <TaskIcon size={12} className="opacity-80" />}
+                        </div>
+                        <p className={`text-sm font-medium ${item.isCompleted ? 'line-through opacity-50' : ''}`}>{item.title}</p>
+
+                        {/* Priority badge */}
+                        {item.type === 'task' && !item.isCompleted && p && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold"
+                            style={{ background: item.priority === 'high' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)', color: item.priority === 'high' ? '#ef4444' : '#22c55e' }}>
+                            {p.label}
+                          </span>
+                        )}
+                      </div>
+
+                      {item.detail && <p className="text-xs text-[var(--text-muted)] mt-1 line-clamp-2 leading-relaxed">{renderTextWithLinks(item.detail)}</p>}
+                      {item.location && <p className="text-[10px] font-bold text-blue-500 mt-1 flex items-center gap-1"><ExternalLink size={10} /> {renderTextWithLinks(item.location)}</p>}
+
+                      {/* Deadline badges */}
+                      {!item.isCompleted && (item.deadlineDate || item.deadlineTime || item.date || item.time) && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {(item.deadlineDate || item.date) && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
+                              <CalendarDays size={10} /> {item.deadlineDate || item.date}
+                            </span>
+                          )}
+                          {(item.deadlineTime || item.time) && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
+                              <Clock size={10} /> {item.deadlineTime || item.time}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    
+
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
                       <button onClick={() => openEditModal(item)} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Pencil size={14} /></button>
                       <button onClick={() => deleteTask(item.id)} className="p-1.5 text-red-400 hover:bg-red-400/10 rounded-lg"><Trash2 size={14} /></button>
@@ -689,11 +689,11 @@ export default function Dashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredVault.map(item => (
-                  <VaultCard 
-                    key={item.id} 
-                    item={item} 
-                    openEditModal={openEditModal} 
-                    deleteTask={deleteTask} 
+                  <VaultCard
+                    key={item.id}
+                    item={item}
+                    openEditModal={openEditModal}
+                    deleteTask={deleteTask}
                   />
                 ))}
               </div>
@@ -704,10 +704,10 @@ export default function Dashboard() {
 
       {/* ════════════════ RIGHT COL ════════════════ */}
       <section className="lg:col-span-3 space-y-4">
-        
+
         {/* ── DESKTOP ONLY: Standard Portals & Stats (Above Calendar) ── */}
         <div className="hidden lg:flex flex-col gap-4">
-          
+
           {/* Quick Portals Standard */}
           <div style={card} className="p-5 flex flex-col">
             <div className="flex items-center justify-between mb-4">
@@ -747,7 +747,7 @@ export default function Dashboard() {
               </div>
               <BarChart3 size={18} className="text-blue-500" />
             </div>
-            
+
             <div className="space-y-5">
               {/* Primary Counter */}
               <div className="grid grid-cols-2 gap-3">
@@ -763,24 +763,24 @@ export default function Dashboard() {
 
               {/* Progress Detail */}
               <div className="bg-[var(--bg-deep)] p-4 rounded-2xl border border-[var(--border-soft)]">
-                 <div className="flex justify-between text-[11px] font-bold text-[var(--text-muted)] mb-2.5 uppercase tracking-wide">
-                   <span>Completion Rate</span>
-                   <span className="text-blue-500">{stats.rate}%</span>
-                 </div>
-                 <div className="h-2 bg-black/20 rounded-full overflow-hidden mb-4">
-                   <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-1000" style={{ width: `${stats.rate}%` }} />
-                 </div>
-                 
-                 <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2">
-                       <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                       <span className="text-[10px] font-bold text-[var(--text-muted)]">{stats.pendingTasks} Tasks Pending</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                       <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                       <span className="text-[10px] font-bold text-[var(--text-muted)]">{stats.eventsCount} Events Total</span>
-                    </div>
-                 </div>
+                <div className="flex justify-between text-[11px] font-bold text-[var(--text-muted)] mb-2.5 uppercase tracking-wide">
+                  <span>Completion Rate</span>
+                  <span className="text-blue-500">{stats.rate}%</span>
+                </div>
+                <div className="h-2 bg-black/20 rounded-full overflow-hidden mb-4">
+                  <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-1000" style={{ width: `${stats.rate}%` }} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    <span className="text-[10px] font-bold text-[var(--text-muted)]">{stats.pendingTasks} Tasks Pending</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    <span className="text-[10px] font-bold text-[var(--text-muted)]">{stats.eventsCount} Events Total</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -793,12 +793,12 @@ export default function Dashboard() {
             <NavLink to="/calendar" className="text-[11px] font-bold text-blue-500 hover:underline">Full View ↗</NavLink>
           </div>
           <div className="flex items-center justify-between mb-3 px-1">
-            <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1))} className="p-1 hover:bg-[var(--bg-deep)] rounded-md"><ChevronLeft size={14}/></button>
+            <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1))} className="p-1 hover:bg-[var(--bg-deep)] rounded-md"><ChevronLeft size={14} /></button>
             <p className="text-[12px] font-bold">{monthNames[calDate.getMonth()]} {calDate.getFullYear()}</p>
-            <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1))} className="p-1 hover:bg-[var(--bg-deep)] rounded-md"><ChevronRight size={14}/></button>
+            <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1))} className="p-1 hover:bg-[var(--bg-deep)] rounded-md"><ChevronRight size={14} /></button>
           </div>
           <div className="grid grid-cols-7 mb-1">
-            {['S','M','T','W','T','F','S'].map((d, i) => (
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
               <div key={`${d}-${i}`} className="text-center text-[9px] font-bold text-[var(--text-faint)]">{d}</div>
             ))}
           </div>
@@ -820,25 +820,25 @@ export default function Dashboard() {
       {/* Modals - Lazy Loaded for Memory Efficiency */}
       <Suspense fallback={null}>
         {isModalOpen && (
-          <ActivityModal 
-            isOpen={isModalOpen} 
-            onClose={() => setIsModalOpen(false)} 
-            onSave={handleSaveActivity} 
+          <ActivityModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onSave={handleSaveActivity}
             activity={editTarget}
           />
         )}
         {isHubModalOpen && (
-          <AddHubModal 
-            isOpen={isHubModalOpen} 
-            onClose={() => setIsHubModalOpen(false)} 
+          <AddHubModal
+            isOpen={isHubModalOpen}
+            onClose={() => setIsHubModalOpen(false)}
             onSave={handleSavePortal}
             portal={portalEditTarget}
           />
         )}
         {isVaultModalOpen && (
-          <VaultModal 
-            isOpen={isVaultModalOpen} 
-            onClose={() => setIsVaultModalOpen(false)} 
+          <VaultModal
+            isOpen={isVaultModalOpen}
+            onClose={() => setIsVaultModalOpen(false)}
             onSave={handleSaveActivity}
             activity={editTarget}
           />
