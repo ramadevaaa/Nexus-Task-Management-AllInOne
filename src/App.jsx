@@ -3,6 +3,7 @@ import RootLayout from './layouts/RootLayout';
 import Dashboard from './pages/Dashboard';
 import CalendarPage from './pages/CalendarPage';
 import SettingsPage from './pages/SettingsPage';
+import NexusAIPage from './pages/NexusAIPage';
 import Login from './pages/Login';
 import { AuthProvider } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
@@ -21,6 +22,7 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="ai" element={<NexusAIPage />} />
             </Route>
           </Route>
         </Routes>

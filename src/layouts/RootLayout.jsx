@@ -11,7 +11,6 @@ export default function RootLayout() {
   const { theme } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
-  const isCalendar = location.pathname.startsWith('/calendar');
 
   useEffect(() => {
     const update = () => setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -81,7 +80,7 @@ export default function RootLayout() {
       </header>
 
       {/* ── MAIN CONTENT ── */}
-      <main className="flex-1 overflow-y-auto px-4 py-5 pb-28 lg:pb-8 lg:px-8 max-w-[1600px] mx-auto w-full">
+      <main className={`flex-1 overflow-y-auto ${location.pathname === '/ai' ? '' : 'px-4 py-5 pb-28 lg:pb-8 lg:px-8 max-w-[1600px] mx-auto w-full'}`}>
         <Outlet />
       </main>
 
@@ -122,6 +121,24 @@ export default function RootLayout() {
             )}
           </NavLink>
 
+          {/* NEXUS AI CENTER BUTTON */}
+          <NavLink to="/ai" className={navItemCls}>
+            {({ isActive }) => (
+              <>
+                <div className={`p-1.5 rounded-lg transition-all ${isActive ? 'bg-indigo-500/10' : ''}`}>
+                  <div className="relative">
+                    <div className={`absolute -inset-1 blur-sm rounded-full bg-indigo-500 opacity-20 ${isActive ? 'animate-pulse' : 'hidden'}`} />
+                    <span className={`relative text-xl ${isActive ? 'text-indigo-500' : 'grayscale opacity-70'}`}>✨</span>
+                  </div>
+                </div>
+                <span className={`text-[9px] font-bold ${isActive ? 'text-indigo-400' : ''}`}>Nexus AI</span>
+                {isActive && (
+                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-indigo-500" />
+                )}
+              </>
+            )}
+          </NavLink>
+
           <NavLink to="/settings" className={navItemCls}>
             {({ isActive }) => (
               <>
@@ -140,7 +157,7 @@ export default function RootLayout() {
       </nav>
 
       {/* ── FAB (Mobile only) ── */}
-      {!isCalendar && (
+      {location.pathname === '/' && (
         <button
           className="fab lg:hidden"
           onClick={handleFAB}

@@ -16,6 +16,7 @@ const SpotifyPlayer = lazy(() => import('../components/SpotifyPlayer'));
 const ActivityModal = lazy(() => import('../components/ActivityModal'));
 const AddHubModal = lazy(() => import('../components/AddHubModal'));
 const VaultModal = lazy(() => import('../components/VaultModal'));
+import NexusAIWidget from '../components/NexusAIWidget';
 
 const TaskIcon = ({ size = 16, className = "" }) => (
   <img
@@ -737,6 +738,9 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+
+          {/* NEXUS AI WIDGET */}
+          <NexusAIWidget />
 
           {/* Mission Stats Standard */}
           <div style={card} className="p-5 flex flex-col">
