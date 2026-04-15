@@ -8,7 +8,7 @@ import {
   Plus, Trash2, ExternalLink, ChevronLeft, ChevronRight,
   CheckCircle2, Circle, Flame, Clock, Coffee, BarChart3,
   Link2, CalendarDays, RotateCcw, Play, Pause, X, Pencil,
-  StickyNote, Lightbulb, Library, Image as ImageIcon, Search
+  StickyNote, Lightbulb, Library, Image as ImageIcon, Search, Folder
 } from 'lucide-react';
 
 // Lazy load heavy components
@@ -45,6 +45,7 @@ const TABS = [
   { key: 'all', label: 'All' },
   { key: 'task', label: 'Tasks' },
   { key: 'event', label: 'Events' },
+  { key: 'folder', label: 'Folders' },
   { key: 'active', label: 'Active' },
   { key: 'done', label: 'Done' },
   { key: 'high', label: '🔥 Priority' },
@@ -200,6 +201,7 @@ export default function Dashboard() {
   const [portalEditTarget, setPortalEditTarget] = useState(null);
   const [isGithubDismissed, setIsGithubDismissed] = useState(() => localStorage.getItem('nexus_dismiss_github') === 'true');
   const [vaultSearch, setVaultSearch] = useState('');
+  const [currentFolder, setCurrentFolder] = useState(null);
   const spotifyRef = useRef(null);
 
   // Mini Calendar
@@ -234,10 +236,17 @@ export default function Dashboard() {
   const { mode: timerMode, switchMode, isActive, toggleTimer, resetTimer, formatTime, progressPct } =
     useTimer(handleTimerComplete);
 
-  const queueItems = useMemo(() =>
-    (activities || []).filter(a => a.type === 'task' || a.type === 'event'),
-    [activities]
-  );
+  const queueItems = useMemo(() => {
+    const allQueue = (activities || []).filter(a => a.type === 'task' || a.type === 'event' || a.type === 'folder');
+    
+    if (currentFolder) {
+      // Inside a folder: show only items belonging to this folder
+      return allQueue.filter(a => a.folderId === currentFolder.id);
+    } else {
+      // Root level: show folders and tasks that ARE NOT inside any folder
+      return allQueue.filter(a => a.type === 'folder' || !a.folderId);
+    }
+  }, [activities, currentFolder]);
   const portals = useMemo(() => {
     const list = (activities || []).filter(a => a.type === 'portal');
     const hasGithub = list.some(p => p.title?.toLowerCase() === 'github');
@@ -278,6 +287,7 @@ export default function Dashboard() {
       case 'high': return queueItems.filter(t => t.priority === 'high' && !t.isCompleted);
       case 'task': return queueItems.filter(t => t.type === 'task');
       case 'event': return queueItems.filter(t => t.type === 'event');
+      case 'folder': return queueItems.filter(t => t.type === 'folder');
       default: return queueItems;
     }
   }, [queueItems, activeTab]);
@@ -308,7 +318,7 @@ export default function Dashboard() {
   // ── ANALYSIS: UPCOMING OUTLOOK ──
   const upcomingMissions = useMemo(() => {
     return (queueItems || [])
-      .filter(m => !m.isCompleted)
+      .filter(m => !m.isCompleted && m.type !== 'folder' && !m.folderId)
       .sort((a, b) => {
         const timeA = new Date(`${a.deadlineDate || a.date || '2099-01-01'} ${a.deadlineTime || a.time || '23:59'}`).getTime();
         const timeB = new Date(`${b.deadlineDate || b.date || '2099-01-01'} ${b.deadlineTime || b.time || '23:59'}`).getTime();
@@ -324,6 +334,10 @@ export default function Dashboard() {
     if (id) {
       await updateActivity(id, data);
     } else {
+      // If we are inside a folder, attach the folderId to the new activity
+      if (currentFolder) {
+        data.folderId = currentFolder.id;
+      }
       await addActivity(data);
     }
   };
@@ -576,8 +590,22 @@ export default function Dashboard() {
         <div style={{ ...card, padding: '24px', display: 'flex', flexDirection: 'column', minHeight: '560px' }}>
           <div className="flex justify-between items-center mb-5 pb-4 border-b border-[var(--border)]">
             <div>
-              <h2 style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '16px' }}>My Tasks</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>{stats.completed} of {stats.total} completed</p>
+              <div className="flex items-center gap-2">
+                {currentFolder && (
+                   <button 
+                     onClick={() => setCurrentFolder(null)}
+                     className="p-1.5 hover:bg-white/5 rounded-lg text-blue-500 transition-colors"
+                   >
+                     <ChevronLeft size={18} />
+                   </button>
+                )}
+                <h2 style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '16px' }}>
+                  {currentFolder ? currentFolder.title : 'My Tasks'}
+                </h2>
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>
+                {currentFolder ? 'Folder Content' : `${stats.completed} of ${stats.total} completed`}
+              </p>
             </div>
             <button onClick={() => { setEditTarget(null); setIsModalOpen(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/30">Create</button>
           </div>
@@ -603,18 +631,34 @@ export default function Dashboard() {
               filteredQueue.map(item => {
                 const p = item.type === 'task' ? (priorityConfig[item.priority] || priorityConfig.mid) : null;
                 return (
-                  <div key={item.id} className="flex items-start gap-2 p-4 rounded-2xl bg-[var(--bg-deep)] border border-[var(--border-soft)] group transition-all"
-                    style={{ opacity: item.isCompleted ? 0.6 : 1 }}>
-                    <button onClick={() => toggleTask(item.id, item.isCompleted)} className="mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all bg-transparent"
-                      style={{ borderColor: item.isCompleted ? '#22c55e' : (p?.dot === 'bg-red-500' ? '#ef4444' : 'var(--border)') }}>
-                      {item.isCompleted && <CheckCircle2 size={16} className="text-green-500" />}
-                    </button>
+                  <div key={item.id} className={`flex items-start gap-2 p-4 rounded-2xl bg-[var(--bg-deep)] border border-[var(--border-soft)] group transition-all ${item.type === 'folder' ? 'cursor-pointer hover:border-amber-500/30' : ''}`}
+                    style={{ opacity: item.isCompleted ? 0.6 : 1 }}
+                    onClick={() => {
+                      if (item.type === 'folder') setCurrentFolder(item);
+                    }}
+                  >
+                    {item.type !== 'folder' && (
+                      <button onClick={() => toggleTask(item.id, item.isCompleted)} className="mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all bg-transparent"
+                        style={{ borderColor: item.isCompleted ? '#22c55e' : (p?.dot === 'bg-red-500' ? '#ef4444' : 'var(--border)') }}>
+                        {item.isCompleted && <CheckCircle2 size={16} className="text-green-500" />}
+                      </button>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2.5 flex-wrap">
-                        <div className={`p-1.5 rounded-lg flex-shrink-0 ${item.type === 'event' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                          {item.type === 'event' ? <CalendarDays size={12} /> : <TaskIcon size={12} className="opacity-80" />}
+                        <div className={`p-1.5 rounded-lg flex-shrink-0 ${item.type === 'event' ? 'bg-indigo-500/10 text-indigo-500' : item.type === 'folder' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                          {item.type === 'event' ? <CalendarDays size={12} /> : item.type === 'folder' ? <Folder size={12} /> : <TaskIcon size={12} className="opacity-80" />}
                         </div>
                         <p className={`text-sm font-medium ${item.isCompleted ? 'line-through opacity-50' : ''}`}>{item.title}</p>
+                        {item.type === 'folder' && (
+                          <div className="w-full">
+                            <p className="text-[10px] font-bold text-amber-500/60 mt-0.5 uppercase tracking-wider">
+                              {(() => {
+                                const count = (activities || []).filter(a => a.folderId === item.id).length;
+                                return count === 0 ? 'Empty Folder' : `${count} ${count === 1 ? 'Mission' : 'Missions'} Inside`;
+                              })()}
+                            </p>
+                          </div>
+                        )}
 
                         {/* Priority badge */}
                         {item.type === 'task' && !item.isCompleted && p && (
@@ -646,8 +690,8 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={() => openEditModal(item)} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Pencil size={14} /></button>
-                      <button onClick={() => deleteTask(item.id)} className="p-1.5 text-red-400 hover:bg-red-400/10 rounded-lg"><Trash2 size={14} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); openEditModal(item); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Pencil size={14} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteTask(item.id); }} className="p-1.5 text-red-400 hover:bg-red-400/10 rounded-lg"><Trash2 size={14} /></button>
                     </div>
                   </div>
                 );

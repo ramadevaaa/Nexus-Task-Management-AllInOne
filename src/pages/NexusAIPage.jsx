@@ -9,8 +9,8 @@ import ReactMarkdown from 'react-markdown';
 
 export default function NexusAIPage() {
   const { currentUser } = useAuth();
-  const { messages, loading, error, sendMessage, clearHistory } = useNexusAI(currentUser);
-  const { addActivity } = useTasks();
+  const { messages, loading, error, sendMessage, clearHistory, idMapping } = useNexusAI(currentUser);
+  const { addActivity, updateActivity, deleteTask } = useTasks();
   const [input, setInput] = useState('');
   const scrollRef = useRef(null);
   const navigate = useNavigate();
@@ -30,21 +30,45 @@ export default function NexusAIPage() {
     await sendMessage(text);
   };
 
-  const handleAction = (jsonData) => {
+  const handleAction = async (jsonData) => {
     try {
       const data = JSON.parse(jsonData);
-      addActivity({
-        type: data.type || 'task',
-        title: data.title,
-        deadlineDate: data.date,
-        deadlineTime: data.time,
-        date: data.date, // for events
-        time: data.time,
-        isCompleted: false
-      });
-      alert('Mission confirmed and added to your dashboard! 🚀');
+      
+      if (data.type === 'delete') {
+        if (!data.id) return;
+        await deleteTask(data.id);
+        alert(`Mission purged: ${data.title || 'Item deleted'}`);
+      } 
+      else if (data.type === 'edit') {
+        if (!data.id) return;
+        const { id, type, ...updates } = data;
+        await updateActivity(data.id, updates);
+        alert('Neural patterns updated successfully! 💫');
+      }
+      else if (data.type === 'vault') {
+        await addActivity({
+          type: 'vault',
+          vaultType: data.vaultType || 'note',
+          title: data.title,
+          content: data.content || '',
+          isCompleted: false
+        });
+        alert('Knowledge captured to Nexus Vault! 📚');
+      } else {
+        await addActivity({
+          type: data.type || 'task',
+          title: data.title,
+          deadlineDate: data.date,
+          deadlineTime: data.time,
+          date: data.date,
+          time: data.time,
+          isCompleted: false
+        });
+        alert('Mission confirmed and added to your dashboard! 🚀');
+      }
     } catch (e) {
       console.error("Action error:", e);
+      alert("Neural link sync failed during execution.");
     }
   };
 
@@ -125,24 +149,48 @@ export default function NexusAIPage() {
                       <div className="prose prose-invert prose-xs max-w-none prose-p:leading-relaxed prose-strong:text-white prose-strong:font-black">
                         <ReactMarkdown>{text}</ReactMarkdown>
                       </div>
-                      {action && (
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          className="mt-4 p-4 bg-indigo-500/20 border border-indigo-500/30 rounded-xl space-y-3"
-                        >
-                          <div className="flex items-center gap-2 text-indigo-300">
-                            <span className="text-[10px] font-black uppercase tracking-tight">AI Suggested Action</span>
-                          </div>
-                          <p className="font-bold text-xs text-white">Add "{JSON.parse(action).title}" to your tasks?</p>
-                          <button
-                            onClick={() => handleAction(action)}
-                            className="w-full py-2 bg-indigo-500 text-white rounded-lg text-xs font-bold hover:bg-indigo-400 transition-colors shadow-lg shadow-indigo-500/20"
-                          >
-                            ✓ Confirm Mission
-                          </button>
-                        </motion.div>
-                      )}
+                      {action && (() => {
+                        try {
+                          const actionData = JSON.parse(action);
+                          const isVault = actionData.type === 'vault';
+                          const isDelete = actionData.type === 'delete';
+                          const isEdit = actionData.type === 'edit';
+                          
+                          const config = {
+                            label: isVault ? 'Neural Archive Suggestion' : isDelete ? 'Purge Protocol' : isEdit ? 'Update Protocol' : 'Mission Protocol Suggestion',
+                            colorClass: isVault ? 'text-purple-300' : isDelete ? 'text-red-400' : isEdit ? 'text-amber-400' : 'text-indigo-300',
+                            bgClass: isVault ? 'bg-purple-500/20 border-purple-500/30' : isDelete ? 'bg-red-500/20 border-red-500/30' : isEdit ? 'bg-amber-500/20 border-amber-500/30' : 'bg-indigo-500/20 border-indigo-500/30',
+                            btnClass: isVault ? 'bg-purple-600 hover:bg-purple-500 shadow-purple-500/20' : isDelete ? 'bg-red-600 hover:bg-red-500 shadow-red-500/20' : isEdit ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-500/20' : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20',
+                            btnText: isVault ? '✦ Capture to Vault' : isDelete ? '⚠ Confirm Purge' : isEdit ? '✎ Apply Changes' : '✓ Confirm Mission',
+                            titleText: isVault ? `Archive this ${actionData.vaultType || 'note'}?` : isDelete ? `Permanently delete: ${actionData.title}?` : isEdit ? `Apply modifications to: ${actionData.title}?` : `Authorize Mission: ${actionData.title}?`
+                          };
+
+                          return (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className={`mt-4 p-4 border rounded-xl space-y-3 ${config.bgClass}`}
+                            >
+                              <div className={`flex items-center gap-2 ${config.colorClass}`}>
+                                <span className="text-[10px] font-bold uppercase tracking-widest">{config.label}</span>
+                              </div>
+                              <p className="font-bold text-[13px] text-white">{config.titleText}</p>
+                              <p className="text-[11px] text-slate-400 italic line-clamp-2">
+                                {isDelete ? 'Warning: This action cannot be reversed.' : isEdit ? 'Reviewing suggested parameter adjustments...' : isVault ? actionData.title : actionData.detail || 'New objective identified.'}
+                              </p>
+                              <button
+                                onClick={() => handleAction(action)}
+                                className={`w-full py-2.5 text-white rounded-xl text-[11px] font-bold transition-all shadow-lg active:scale-95 ${config.btnClass}`}
+                              >
+                                {config.btnText}
+                              </button>
+                            </motion.div>
+                          );
+                        } catch (err) {
+                          console.error("Failed to parse AI action JSON:", err);
+                          return null; // Ignore malformed JSON instead of crashing
+                        }
+                      })()}
                     </div>
                     <span className="text-[9px] font-bold text-slate-500 uppercase px-1">
                       {m.createdAt?.seconds ? new Date(m.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}

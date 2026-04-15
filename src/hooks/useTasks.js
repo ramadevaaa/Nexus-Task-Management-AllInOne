@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import {
   collection, query, where, orderBy, onSnapshot,
   addDoc, updateDoc, deleteDoc, doc, serverTimestamp,
-  limit
+  limit, writeBatch
 } from 'firebase/firestore';
 import { encryptData, decryptData } from '../utils/cryptoUtils';
 
@@ -178,16 +178,47 @@ export function useTasks() {
 
   // ── OPTIMISTIC DELETE ──
   const deleteTask = useCallback(async (taskId) => {
-    const backup = activities.find(a => a.id === taskId);
-    setActivities(prev => prev.filter(a => a.id !== taskId));
+    const itemToDelete = activities.find(a => a.id === taskId);
+    if (!itemToDelete) return;
+
+    // 1. Optimistic UI Update
+    if (itemToDelete.type === 'folder') {
+      // Remove folder and ALL its children from local state
+      setActivities(prev => prev.filter(a => a.id !== taskId && a.folderId !== taskId));
+    } else {
+      setActivities(prev => prev.filter(a => a.id !== taskId));
+    }
+
     if (taskId.startsWith('temp_')) return;
+
     try {
-      await deleteDoc(doc(db, 'activities', taskId));
+      if (itemToDelete.type === 'folder') {
+        // 2. Cascade Delete in Firestore
+        const batch = writeBatch(db);
+        
+        // Find all children in the current activities state
+        const children = activities.filter(a => a.folderId === taskId);
+        
+        // Add children to batch
+        children.forEach(child => {
+          batch.delete(doc(db, 'activities', child.id));
+        });
+        
+        // Add folder itself to batch
+        batch.delete(doc(db, 'activities', taskId));
+        
+        await batch.commit();
+        console.log(`[Firestore] Folder "${itemToDelete.title}" and ${children.length} children deleted.`);
+      } else {
+        // Standard delete for tasks/events
+        await deleteDoc(doc(db, 'activities', taskId));
+      }
     } catch (err) {
       console.error('Delete failed:', err);
-      if (backup) setActivities(prev => [...prev, backup]);
+      // Fallback: reload state from Firestore if failed
+      window.location.reload(); 
     }
-  }, [activities]);
+  }, [activities, currentUser]);
 
   // ── PURGE COMPLETED ──
   const purgeCompleted = useCallback(async () => {

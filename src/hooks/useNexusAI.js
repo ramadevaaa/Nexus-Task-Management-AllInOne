@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, orderBy, onSnapshot, addDoc, limit, serverTimestamp, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, limit, serverTimestamp, getDocs, writeBatch } from 'firebase/firestore';
 import { startNexusChat } from '../lib/gemini';
 import { useTasks } from './useTasks';
 
@@ -11,7 +11,7 @@ export function useNexusAI(user) {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
 
-  // 1. Fetch Chat History from Firestore (Sync multi-device)
+  // 1. Fetch Chat History from Firestore
   useEffect(() => {
     if (!user) return;
 
@@ -19,7 +19,7 @@ export function useNexusAI(user) {
       collection(db, 'ai_history'),
       where('userId', '==', user.uid),
       orderBy('createdAt', 'desc'),
-      limit(20) // Keep history small
+      limit(20)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -30,7 +30,7 @@ export function useNexusAI(user) {
       
       setMessages(msgs);
       
-      // Convert to Gemini history format (LIMIT TO LAST 10 FOR EFFICIENCY)
+      // Convert to Gemini history format (last 10 messages)
       const geminiHistory = msgs.slice(-10).map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.text }],
@@ -41,25 +41,37 @@ export function useNexusAI(user) {
     return () => unsubscribe();
   }, [user]);
 
-  // 2. Data Aggregator (Context) - LIMITING DATA TO SAVE TOKENS
+  // 2. Build Dashboard Context with full IDs
   const getDashboardContext = useCallback(() => {
     const activeTasks = activities.filter(a => a.type === 'task' && !a.isCompleted).slice(0, 15);
     const upcomingEvents = activities.filter(a => a.type === 'event').slice(0, 10);
-    const vaultNotes = activities.filter(a => a.type === 'vault').slice(0, 8);
+    const vaultItems = activities.filter(a => a.type === 'vault').slice(0, 10);
+    const folders = activities.filter(a => a.type === 'folder').slice(0, 10);
 
     return `
-    CURRENT USER CONTEXT:
-    Date: ${new Date().toLocaleDateString()}
-    Time: ${new Date().toLocaleTimeString()}
-    
-    RECENT TASKS:
-    ${activeTasks.map(t => `- ${t.title} (Due: ${t.deadlineDate})`).join('\n')}
-    
-    RECENT EVENTS:
-    ${upcomingEvents.map(e => `- ${e.title} (Time: ${e.date})`).join('\n')}
-    
-    RECENT VAULT BITS:
-    ${vaultNotes.map(v => `- ${v.title}`).join('\n')}
+CURRENT USER CONTEXT:
+Date: ${new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+Time: ${new Date().toLocaleTimeString('id-ID')}
+
+ACTIVE TASKS:
+${activeTasks.length > 0
+  ? activeTasks.map(t => `- [ID: ${t.id}] "${t.title}" | Due: ${t.deadlineDate || 'Tidak ada'} | Priority: ${t.priority || 'normal'} | Detail: ${t.detail?.substring(0, 80) || '-'}`).join('\n')
+  : '(tidak ada tugas aktif)'}
+
+UPCOMING EVENTS:
+${upcomingEvents.length > 0
+  ? upcomingEvents.map(e => `- [ID: ${e.id}] "${e.title}" | Date: ${e.date || '-'} | Time: ${e.time || '-'}`).join('\n')
+  : '(tidak ada event)'}
+
+NEXUS VAULT:
+${vaultItems.length > 0
+  ? vaultItems.map(v => `- [ID: ${v.id}] [${v.vaultType?.toUpperCase() || 'NOTE'}] "${v.title}": ${v.content?.substring(0, 100) || '-'}${v.content?.length > 100 ? '...' : ''}`).join('\n')
+  : '(vault kosong)'}
+
+FOLDERS:
+${folders.length > 0
+  ? folders.map(f => `- [ID: ${f.id}] Folder: "${f.title}"`).join('\n')
+  : '(tidak ada folder)'}
     `;
   }, [activities]);
 
@@ -70,7 +82,7 @@ export function useNexusAI(user) {
     setLoading(true);
     setError(null);
     const context = getDashboardContext();
-    const fullPrompt = `${context}\n\nUSER MESSAGE: ${text}`;
+    const fullPrompt = `${context}\n\nPESAN PENGGUNA: ${text}`;
 
     try {
       // Save User Message to Firestore
@@ -97,9 +109,9 @@ export function useNexusAI(user) {
     } catch (err) {
       console.error("Nexus AI Error:", err);
       if (err.message?.includes('429')) {
-        setError("Neural link saturated (Quota Exceeded). Please wait a moment.");
+        setError("Neural link saturated (Quota Exceeded). Tunggu sebentar lalu coba lagi.");
       } else {
-        setError("Neural link interrupted. Please try again.");
+        setError("Neural link interrupted. Silakan coba lagi.");
       }
     } finally {
       setLoading(false);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, CalendarDays, Pencil } from 'lucide-react';
+import { X, CalendarDays, Pencil, Folder } from 'lucide-react';
 
 const TaskIcon = ({ size = 16, className = "" }) => (
   <img 
@@ -21,6 +21,7 @@ export default function ActivityModal({ isOpen, onClose, onSave, activity = null
   const [eventLocation, setEventLocation] = useState('');
   const [eventDate, setEventDate]   = useState(defaultDate);
   const [eventTime, setEventTime]   = useState('');
+  const [folderTitle, setFolderTitle] = useState('');
 
   // Handle Edit Mode: Populate state if an activity is provided
   useEffect(() => {
@@ -33,11 +34,13 @@ export default function ActivityModal({ isOpen, onClose, onSave, activity = null
           setTaskPriority(activity.priority || 'mid');
           setDeadlineDate(activity.deadlineDate || '');
           setDeadlineTime(activity.deadlineTime || '');
-        } else {
+        } else if (activity.type === 'event') {
           setEventTitle(activity.title || '');
           setEventLocation(activity.location || '');
           setEventDate(activity.date || '');
           setEventTime(activity.time || '');
+        } else if (activity.type === 'folder') {
+          setFolderTitle(activity.title || '');
         }
       } else {
         // Reset or set defaults for new item
@@ -54,6 +57,7 @@ export default function ActivityModal({ isOpen, onClose, onSave, activity = null
     setTaskTitle(''); setTaskDetail(''); setTaskPriority('mid');
     setDeadlineDate(''); setDeadlineTime('');
     setEventTitle(''); setEventLocation(''); setEventDate(''); setEventTime('');
+    setFolderTitle('');
   }
 
   const handleSubmit = (e) => {
@@ -65,16 +69,20 @@ export default function ActivityModal({ isOpen, onClose, onSave, activity = null
       priority: taskPriority, 
       deadlineDate: deadlineDate || null, 
       deadlineTime: deadlineTime || null 
-    } : { 
+    } : type === 'event' ? { 
       type: 'event', 
       title: eventTitle.trim(), 
       location: eventLocation.trim(), 
       date: eventDate, 
       time: eventTime 
+    } : {
+      type: 'folder',
+      title: folderTitle.trim(),
     };
 
     if (type === 'task' && (!taskTitle.trim() || !deadlineDate || !deadlineTime)) return;
     if (type === 'event' && (!eventTitle.trim() || !eventDate || !eventTime)) return;
+    if (type === 'folder' && !folderTitle.trim()) return;
 
     onSave(data, activity?.id); // Pass ID if editing
     reset();
@@ -120,20 +128,20 @@ export default function ActivityModal({ isOpen, onClose, onSave, activity = null
                 <span>Edit {activity.type === 'task' ? 'Task' : 'Event'}</span>
               </div>
             ) : (
-              ['task', 'event'].map(t => (
+              ['task', 'event', 'folder'].map(t => (
                 <button key={t}
                   type="button"
                   onClick={() => setType(t)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '8px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 700,
+                    padding: '8px 12px', borderRadius: '12px', fontSize: '11px', fontWeight: 700,
                     border: type === t ? '1px solid rgba(59,130,246,0.5)' : '1px solid #252f42',
                     backgroundColor: type === t ? 'rgba(59,130,246,0.15)' : 'transparent',
                     color: type === t ? '#60a5fa' : '#8b9ab5',
                     cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
                   }}>
-                  <div className={`p-1.5 rounded-lg ${type === t ? (t === 'event' ? 'bg-indigo-500/20' : 'bg-blue-400/20') : 'bg-white/5'}`}>
-                    {t === 'task' ? <TaskIcon size={14} /> : <CalendarDays size={14} />}
+                  <div className={`p-1.5 rounded-lg ${type === t ? (t === 'event' ? 'bg-indigo-500/20' : t === 'folder' ? 'bg-amber-400/20' : 'bg-blue-400/20') : 'bg-white/5'}`}>
+                    {t === 'task' ? <TaskIcon size={14} /> : t === 'event' ? <CalendarDays size={14} /> : <Folder size={14} className="text-amber-400" />}
                   </div>
                   <span>{t.toUpperCase()}</span>
                 </button>
@@ -205,7 +213,7 @@ export default function ActivityModal({ isOpen, onClose, onSave, activity = null
                   />
                 </div>
               </div>
-            </>) : (<>
+            </>) : type === 'event' ? (<>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Event title</label>
                 <input
@@ -239,6 +247,20 @@ export default function ActivityModal({ isOpen, onClose, onSave, activity = null
                     style={{ ...inputStyle, colorScheme: 'dark' }}
                   />
                 </div>
+              </div>
+            </>) : (<>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Folder name</label>
+                <input
+                  autoFocus type="text" value={folderTitle}
+                  onChange={e => setFolderTitle(e.target.value)} required
+                  style={inputStyle} placeholder="e.g. Work Projects, Personal Goals..."
+                />
+              </div>
+              <div style={{ p: '12px', backgroundColor: 'rgba(234,179,8,0.05)', borderRadius: '12px', border: '1px dashed rgba(234,179,8,0.2)' }}>
+                <p style={{ fontSize: '11px', color: '#eab308', textAlign: 'center', margin: 0 }}>
+                  Folders help you group related missions together.
+                </p>
               </div>
             </>)}
 
