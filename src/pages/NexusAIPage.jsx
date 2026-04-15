@@ -41,8 +41,12 @@ export default function NexusAIPage() {
       } 
       else if (data.type === 'edit') {
         if (!data.id) return;
-        const { id, type, ...updates } = data;
-        await updateActivity(data.id, updates);
+        const { id, type: actionType, ...updates } = data;
+        // If 'type' is provided in the JSON, we want to update it in the document too
+        const finalUpdates = { ...updates };
+        if (data.type && data.type !== 'edit') finalUpdates.type = data.type;
+        
+        await updateActivity(data.id, finalUpdates);
         alert('Neural patterns updated successfully! 💫');
       }
       else if (data.type === 'vault') {
@@ -58,6 +62,8 @@ export default function NexusAIPage() {
         await addActivity({
           type: data.type || 'task',
           title: data.title,
+          detail: data.detail || '',
+          location: data.location || '',
           deadlineDate: data.date,
           deadlineTime: data.time,
           date: data.date,
@@ -73,10 +79,19 @@ export default function NexusAIPage() {
   };
 
   const parseMessage = (text) => {
+    // Find first JSON block for the action card
     const jsonMatch = text.match(/\[JSON_START\]([\s\S]*?)\[JSON_END\]/);
     if (jsonMatch) {
-      const cleanText = text.replace(/\[JSON_START\][\s\S]*?\[JSON_END\]/, '').trim();
-      return { text: cleanText, action: jsonMatch[1] };
+      // Use global flag 'g' to strip ALL JSON blocks from the visible text area
+      const cleanText = text.replace(/\[JSON_START\][\s\S]*?\[JSON_END\]/g, '').trim();
+      
+      // CLEANUP: Remove markdown code blocks if the AI accidentally included them
+      let actionRaw = jsonMatch[1].trim();
+      if (actionRaw.startsWith('```')) {
+        actionRaw = actionRaw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/i, '').trim();
+      }
+      
+      return { text: cleanText, action: actionRaw };
     }
     return { text, action: null };
   };

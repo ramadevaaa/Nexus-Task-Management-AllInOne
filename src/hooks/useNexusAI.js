@@ -31,7 +31,14 @@ export function useNexusAI(user) {
       setMessages(msgs);
       
       // Convert to Gemini history format (last 10 messages)
-      const geminiHistory = msgs.slice(-10).map(m => ({
+      let slicedMsgs = msgs.slice(-10);
+      
+      // CRITICAL FIX: Gemini requires the first message in history to be from 'user'
+      while (slicedMsgs.length > 0 && slicedMsgs[0].role !== 'user') {
+        slicedMsgs.shift();
+      }
+
+      const geminiHistory = slicedMsgs.map(m => ({
         role: m.role === 'user' ? 'user' : 'model',
         parts: [{ text: m.text }],
       }));
@@ -108,10 +115,12 @@ ${folders.length > 0
 
     } catch (err) {
       console.error("Nexus AI Error:", err);
-      if (err.message?.includes('429')) {
+      const errorMessage = err.message || "Unknown neural error";
+      
+      if (errorMessage.includes('429')) {
         setError("Neural link saturated (Quota Exceeded). Tunggu sebentar lalu coba lagi.");
       } else {
-        setError("Neural link interrupted. Silakan coba lagi.");
+        setError(`Neural link interrupted: ${errorMessage}`);
       }
     } finally {
       setLoading(false);
