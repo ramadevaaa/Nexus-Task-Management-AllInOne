@@ -138,7 +138,7 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
             <span className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl flex-shrink-0">
               {item.vaultType === 'idea' ? <Lightbulb size={16} /> : item.vaultType === 'learning' ? <Library size={16} /> : <StickyNote size={16} />}
             </span>
-            <h4 className="font-bold text-sm truncate text-[var(--text-main)]">{item.title}</h4>
+            <h4 className="font-bold text-sm break-all text-[var(--text-main)] leading-tight flex-1">{item.title}</h4>
           </div>
         </div>
 
@@ -407,7 +407,7 @@ export default function Dashboard() {
                     {m.type === 'event' ? <CalendarDays size={14} className="text-white" /> : <TaskIcon size={14} className="brightness-200" />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold text-white truncate leading-none mb-1">{m.title}</p>
+                    <p className="text-[11px] font-bold text-white break-all leading-tight mb-1">{m.title}</p>
                     <p className="text-[9px] font-medium text-white/50 truncate flex items-center gap-1">
                       <CalendarDays size={8} /> {m.deadlineDate || m.date || 'Today'} • <Clock size={8} /> {m.deadlineTime || m.time || 'Anytime'}
                     </p>
@@ -643,50 +643,58 @@ export default function Dashboard() {
                         {item.isCompleted && <CheckCircle2 size={16} className="text-green-500" />}
                       </button>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <div className={`p-1.5 rounded-lg flex-shrink-0 ${item.type === 'event' ? 'bg-indigo-500/10 text-indigo-500' : item.type === 'folder' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                          {item.type === 'event' ? <CalendarDays size={12} /> : item.type === 'folder' ? <Folder size={12} /> : <TaskIcon size={12} className="opacity-80" />}
-                        </div>
-                        <p className={`text-sm font-medium ${item.isCompleted ? 'line-through opacity-50' : ''}`}>{item.title}</p>
-                        {item.type === 'folder' && (
-                          <div className="w-full">
-                            <p className="text-[10px] font-bold text-amber-500/60 mt-0.5 uppercase tracking-wider">
-                              {(() => {
-                                const count = (activities || []).filter(a => a.folderId === item.id).length;
-                                return count === 0 ? 'Empty Folder' : `${count} ${count === 1 ? 'Mission' : 'Missions'} Inside`;
-                              })()}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Priority badge */}
-                        {item.type === 'task' && !item.isCompleted && p && (
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold"
-                            style={{ background: item.priority === 'high' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)', color: item.priority === 'high' ? '#ef4444' : '#22c55e' }}>
-                            {p.label}
-                          </span>
-                        )}
+                    <div className="flex-1 min-w-0 flex items-start gap-3">
+                      {/* Icon */}
+                      <div className={`p-2 rounded-xl flex-shrink-0 ${item.type === 'event' ? 'bg-indigo-500/10 text-indigo-500' : item.type === 'folder' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                        {item.type === 'event' ? <CalendarDays size={14} /> : item.type === 'folder' ? <Folder size={14} /> : <TaskIcon size={14} className="opacity-80" />}
                       </div>
 
-                      {item.detail && <p className="text-xs text-[var(--text-muted)] mt-1 line-clamp-2 leading-relaxed">{renderTextWithLinks(item.detail)}</p>}
-                      {item.location && <p className="text-[10px] font-bold text-blue-500 mt-1 flex items-center gap-1"><ExternalLink size={10} /> {renderTextWithLinks(item.location)}</p>}
-
-                      {/* Deadline badges */}
-                      {!item.isCompleted && (item.deadlineDate || item.deadlineTime || item.date || item.time) && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {(item.deadlineDate || item.date) && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
-                              <CalendarDays size={10} /> {item.deadlineDate || item.date}
-                            </span>
-                          )}
-                          {(item.deadlineTime || item.time) && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
-                              <Clock size={10} /> {item.deadlineTime || item.time}
+                      {/* Text Content Stack */}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={`text-sm font-bold break-all leading-tight ${item.isCompleted ? 'line-through opacity-50' : 'text-[var(--text-main)]'}`}>
+                            {item.title}
+                          </p>
+                          
+                          {/* Priority badge (Task only) */}
+                          {item.type === 'task' && !item.isCompleted && p && (
+                            <span className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider"
+                              style={{ background: item.priority === 'high' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)', color: item.priority === 'high' ? '#ef4444' : '#22c55e' }}>
+                              {p.label}
                             </span>
                           )}
                         </div>
-                      )}
+
+                        {/* Folder Info */}
+                        {item.type === 'folder' && (
+                          <p className="text-[10px] font-bold text-amber-500/60 uppercase tracking-wider">
+                            {(() => {
+                              const count = (activities || []).filter(a => a.folderId === item.id).length;
+                              return count === 0 ? 'Empty Folder' : `${count} ${count === 1 ? 'Mission' : 'Missions'} Inside`;
+                            })()}
+                          </p>
+                        )}
+
+                        {/* Detail & Location */}
+                        {item.detail && <p className="text-xs text-[var(--text-muted)] break-words leading-relaxed">{renderTextWithLinks(item.detail)}</p>}
+                        {item.location && <p className="text-[10px] font-bold text-blue-500 flex items-center gap-1"><ExternalLink size={10} /> {renderTextWithLinks(item.location)}</p>}
+
+                        {/* Deadline badges */}
+                        {!item.isCompleted && (item.deadlineDate || item.deadlineTime || item.date || item.time) && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {(item.deadlineDate || item.date) && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
+                                <CalendarDays size={10} /> {item.deadlineDate || item.date}
+                              </span>
+                            )}
+                            {(item.deadlineTime || item.time) && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
+                                <Clock size={10} /> {item.deadlineTime || item.time}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">

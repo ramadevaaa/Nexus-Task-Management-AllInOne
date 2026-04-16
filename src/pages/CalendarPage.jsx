@@ -2,7 +2,11 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTasks } from '../hooks/useTasks';
 import ActivityModal from '../components/ActivityModal';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, CalendarDays, Clock, Plus } from 'lucide-react';
+
+const TaskIcon = ({ size = 16, className = "" }) => (
+  <img src="/task.svg" alt="Task" style={{ width: size, height: size }} className={`invert brightness-0 invert-[1] ${className}`} />
+);
 
 const MONTH_NAMES = [
   'January','February','March','April','May','June',
@@ -15,13 +19,19 @@ export default function CalendarPage() {
   const [currentDate, setCurrentDate]   = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [zoomDate, setZoomDate] = useState(null);
   const navigate = useNavigate();
   const { activities, addActivity } = useTasks();
 
-  const events = useMemo(() =>
-    (activities || []).filter(a => a.type === 'event' && !a.isCompleted),
-    [activities]
-  );
+  const calendarItems = useMemo(() => {
+    return (activities || []).filter(a => 
+      !a.isCompleted && (a.type === 'event' || a.type === 'task')
+    ).map(a => ({
+      ...a,
+      normalizedDate: a.type === 'event' ? a.date : a.deadlineDate,
+      normalizedTime: a.type === 'event' ? a.time : a.deadlineTime
+    })).filter(a => a.normalizedDate);
+  }, [activities]);
 
   const today         = new Date();
   const daysInMonth   = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
@@ -29,8 +39,7 @@ export default function CalendarPage() {
 
   const handleDayClick = (day) => {
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    setSelectedDate(dateStr);
-    setIsAssignOpen(true);
+    setZoomDate(dateStr);
   };
 
   const daysGrid = useMemo(() => {
@@ -39,8 +48,8 @@ export default function CalendarPage() {
     return [...blanks, ...days];
   }, [daysInMonth, firstDayOfMonth]);
 
-  const monthEventCount = events.filter(e => {
-    const [y, m] = (e.date || '').split('-').map(Number);
+  const monthEventCount = calendarItems.filter(e => {
+    const [y, m] = (e.normalizedDate || '').split('-').map(Number);
     return y === currentDate.getFullYear() && m === currentDate.getMonth() + 1;
   }).length;
 
@@ -170,7 +179,8 @@ export default function CalendarPage() {
             );
 
             const cellDateStr   = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const cellEvents    = events.filter(e => e.date === cellDateStr);
+            const cellEvents    = calendarItems.filter(e => e.normalizedDate === cellDateStr)
+              .sort((a,b) => (a.normalizedTime || '23:59').localeCompare(b.normalizedTime || '23:59'));
             const isToday       = day === today.getDate()
               && currentDate.getMonth()    === today.getMonth()
               && currentDate.getFullYear() === today.getFullYear();
@@ -231,11 +241,13 @@ export default function CalendarPage() {
                           style={{
                             fontSize: '10px', fontWeight: 500,
                             padding: '1px 4px', borderRadius: '4px',
-                            backgroundColor: 'rgba(59,130,246,0.15)',
-                            color: '#60a5fa',
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            backgroundColor: e.type === 'event' ? 'rgba(99,102,241,0.15)' : 'rgba(59,130,246,0.15)',
+                            color: e.type === 'event' ? '#818cf8' : '#60a5fa',
+                            whiteSpace: 'normal',
+                            wordBreak: 'break-all',
+                            lineHeight: '1.2'
                           }}>
-                          {e.time && <span style={{ opacity: 0.75, marginRight: '2px' }}>{e.time}</span>}
+                          {e.normalizedTime && <span style={{ opacity: 0.75, marginRight: '2px' }}>{e.normalizedTime}</span>}
                           {e.title}
                         </div>
                       ))}
@@ -260,6 +272,64 @@ export default function CalendarPage() {
         defaultType="event"
         defaultDate={selectedDate}
       />
+
+      {/* ── Day Zoom Modal ── */}
+      {zoomDate && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setZoomDate(null)}>
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh] animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="p-5 border-b border-[var(--border)] flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-[var(--text-main)]">Daily Outline</h3>
+                <p className="text-xs text-[var(--text-muted)] mt-1">{new Date(zoomDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              </div>
+              <button onClick={() => setZoomDate(null)} className="p-2 bg-[var(--bg-deep)] rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border-soft)]">
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-5 overflow-y-auto flex-1 space-y-3">
+              {(() => {
+                const dayItems = calendarItems.filter(e => e.normalizedDate === zoomDate).sort((a,b) => (a.normalizedTime || '23:59').localeCompare(b.normalizedTime || '23:59'));
+                if (dayItems.length === 0) {
+                  return (
+                    <div className="py-10 text-center opacity-50 flex flex-col items-center">
+                      <CalendarDays size={32} className="mb-3 opacity-50" />
+                      <p className="font-bold text-sm">No missions today</p>
+                      <p className="text-[10px]">Rest up or get ahead!</p>
+                    </div>
+                  );
+                }
+                return dayItems.map(item => (
+                  <div key={item.id} className="flex gap-3 bg-[var(--bg-deep)] p-3 rounded-xl border border-[var(--border-soft)] items-start focus:ring-2 ring-blue-500 hover:border-blue-500/30 transition-all">
+                     <div className={`p-2 rounded-xl flex-shrink-0 ${item.type === 'event' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-blue-500/10 text-blue-500'}`}>
+                       {item.type === 'event' ? <CalendarDays size={16} /> : <TaskIcon size={16} />}
+                     </div>
+                     <div className="min-w-0 flex-1">
+                       <div className="flex justify-between items-start">
+                         <p className="text-sm font-bold text-[var(--text-main)] break-all leading-tight flex-1 pr-2">{item.title}</p>
+                         {item.type === 'task' && item.priority && (
+                           <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/5 opacity-70 ml-2 flex-shrink-0">{item.priority}</span>
+                         )}
+                       </div>
+                       {item.normalizedTime && (
+                         <span className="text-[10px] font-bold text-[var(--text-muted)] flex items-center gap-1 mt-1.5">
+                           <Clock size={10} /> {item.normalizedTime}
+                         </span>
+                       )}
+                     </div>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            <div className="p-4 border-t border-[var(--border)] bg-[var(--bg-deep)] rounded-b-2xl">
+              <button onClick={() => { setSelectedDate(zoomDate); setZoomDate(null); setIsAssignOpen(true); }} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20 transition-all">
+                <Plus size={16} /> Add Mission
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

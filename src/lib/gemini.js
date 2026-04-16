@@ -57,7 +57,7 @@ RULES:
 `;
 
 export const nexusModel = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash",
+  model: "gemini-flash-latest",
   systemInstruction,
 });
 
