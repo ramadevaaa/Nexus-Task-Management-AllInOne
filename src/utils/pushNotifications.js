@@ -7,22 +7,37 @@ const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 export const requestFirebaseToken = async (userId) => {
   try {
     const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
-      if (currentToken) {
-        console.log('✅ [Push] FCM Token:', currentToken);
-        // Save token to user profile
+    if (permission !== 'granted') {
+      console.warn('⚠️ [Push] Notification permission denied.');
+      return null;
+    }
+
+    if (!VAPID_KEY) {
+      console.error('❌ [Push] VAPID Key missing in .env!');
+      return null;
+    }
+
+    const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
+    
+    if (currentToken) {
+      console.log('✅ [Push] FCM Token secured.');
+      
+      try {
+        // Save token to user profile in Firestore
         await setDoc(doc(db, "users", userId), {
           fcmToken: currentToken,
           updatedAt: new Date()
         }, { merge: true });
+        console.log('💾 [Push] Token saved to Firestore.');
         return currentToken;
-      } else {
-        console.warn('❌ No registration token available. Request permission to generate one.');
+      } catch (dbErr) {
+        console.error('❌ [Push] Failed to save token to database (Check Firestore Rules):', dbErr);
       }
+    } else {
+      console.warn('❌ [Push] No registration token available.');
     }
   } catch (err) {
-    console.error('❌ An error occurred while retrieving token:', err);
+    console.error('❌ [Push] Error during token retrieval process:', err);
   }
 };
 
