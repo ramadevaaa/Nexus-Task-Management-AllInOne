@@ -1,0 +1,22 @@
+{
+  "headers": [
+    {
+      "source": "/(.*\\.(js|css|svg|png|jpg|webp|woff2))",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=31536000"
+        }
+      ]
+    },
+    {
+      "source": "/(.*firebase.*\\.js)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=1800, stale-while-revalidate=600"
+        }
+      ]
+    }
+  ]
+}

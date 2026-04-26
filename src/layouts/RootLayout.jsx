@@ -39,9 +39,9 @@ export default function RootLayout() {
 
         {/* Left: Logo */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center p-1.5 shadow-lg overflow-hidden border border-white/5"
+          <div className="w-16 h-16 rounded-xl flex items-center justify-center p-2 shadow-lg overflow-hidden border border-white/5"
             style={{ background: 'linear-gradient(145deg, #0f172a 0%, #171e2e 100%)' }}>
-            <img src="/favicon.svg" alt="Nexus Logo" className="w-full h-full object-contain" />
+            <img src="/nexus_tanpa_tulisan.png" alt="Nexus Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <span className="font-bold text-base tracking-tight" style={{ color: 'var(--text-main)' }}>Nexus</span>
@@ -55,7 +55,7 @@ export default function RootLayout() {
         {/* Center: Desktop Nav */}
         <nav className="hidden lg:flex items-center gap-1">
           <NavLink to="/" end className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Dashboard</NavLink>
-          <NavLink to="/tasks" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Tasks</NavLink>
+          <NavLink to="/tasks" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Missions</NavLink>
           <NavLink to="/calendar" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Calendar</NavLink>
           <NavLink to="/vault" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-indigo-500/10 text-indigo-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Vault</NavLink>
           <NavLink to="/ai" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-indigo-500/10 text-indigo-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Nexus AI</NavLink>
@@ -95,8 +95,8 @@ export default function RootLayout() {
 
       {/* ── MOBILE BOTTOM NAV ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pt-2 shadow-[0_-8px_32px_rgba(0,0,0,0.15)]"
-        style={{ 
-          backgroundColor: 'var(--bg-card)', 
+        style={{
+          backgroundColor: 'var(--bg-card)',
           borderTop: '1px solid var(--border)',
           paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))'
         }}>
@@ -122,7 +122,7 @@ export default function RootLayout() {
                 <div className={`p-1.5 rounded-lg transition-all ${isActive ? 'bg-blue-500/10' : ''}`}>
                   <ClipboardList size={20} />
                 </div>
-                <span className="text-[9px] font-bold">Tasks</span>
+                <span className="text-[9px] font-bold">Missions</span>
                 {isActive && (
                   <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-blue-500" />
                 )}

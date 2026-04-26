@@ -623,6 +623,12 @@ export default function Dashboard() {
                         )}
                       </div>
                       {item.detail && <p className="text-[10px] text-[var(--text-muted)] truncate mt-1">{item.detail}</p>}
+                      {(item.deadlineDate || item.date) && (
+                        <p className="text-[9px] font-bold text-[var(--text-faint)] mt-1.5 flex items-center gap-2">
+                          <span className="flex items-center gap-1"><CalendarDays size={10} className="text-[var(--text-faint)]" /> {item.deadlineDate || item.date}</span>
+                          {(item.deadlineTime || item.time) && <span className="flex items-center gap-1"><Clock size={10} className="text-[var(--text-faint)]" /> {item.deadlineTime || item.time}</span>}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
