@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Calendar, Settings, Plus } from 'lucide-react';
+import { Home, Calendar, Settings, Plus, ClipboardList, Library } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -52,6 +52,15 @@ export default function RootLayout() {
           </div>
         </div>
 
+        {/* Center: Desktop Nav */}
+        <nav className="hidden lg:flex items-center gap-1">
+          <NavLink to="/" end className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Dashboard</NavLink>
+          <NavLink to="/tasks" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Tasks</NavLink>
+          <NavLink to="/calendar" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Calendar</NavLink>
+          <NavLink to="/vault" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-indigo-500/10 text-indigo-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Vault</NavLink>
+          <NavLink to="/ai" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-indigo-500/10 text-indigo-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Nexus AI</NavLink>
+        </nav>
+
         {/* Right: Clock + Avatar */}
         <div className="flex items-center gap-3">
           <span className="hidden sm:block text-sm font-mono font-medium px-3 py-1.5 rounded-xl"
@@ -91,7 +100,7 @@ export default function RootLayout() {
           borderTop: '1px solid var(--border)',
           paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))'
         }}>
-        <div className="flex justify-around items-center max-w-sm mx-auto">
+        <div className="flex justify-around items-center max-w-md mx-auto">
 
           <NavLink to="/" end className={navItemCls}>
             {({ isActive }) => (
@@ -107,13 +116,13 @@ export default function RootLayout() {
             )}
           </NavLink>
 
-          <NavLink to="/calendar" className={navItemCls}>
+          <NavLink to="/tasks" className={navItemCls}>
             {({ isActive }) => (
               <>
                 <div className={`p-1.5 rounded-lg transition-all ${isActive ? 'bg-blue-500/10' : ''}`}>
-                  <Calendar size={20} />
+                  <ClipboardList size={20} />
                 </div>
-                <span className="text-[9px] font-bold">Calendar</span>
+                <span className="text-[9px] font-bold">Tasks</span>
                 {isActive && (
                   <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-blue-500" />
                 )}
@@ -139,15 +148,29 @@ export default function RootLayout() {
             )}
           </NavLink>
 
-          <NavLink to="/settings" className={navItemCls}>
+          <NavLink to="/calendar" className={navItemCls}>
             {({ isActive }) => (
               <>
                 <div className={`p-1.5 rounded-lg transition-all ${isActive ? 'bg-blue-500/10' : ''}`}>
-                  <Settings size={20} />
+                  <Calendar size={20} />
                 </div>
-                <span className="text-[9px] font-bold">Settings</span>
+                <span className="text-[9px] font-bold">Calendar</span>
                 {isActive && (
                   <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-blue-500" />
+                )}
+              </>
+            )}
+          </NavLink>
+
+          <NavLink to="/vault" className={navItemCls}>
+            {({ isActive }) => (
+              <>
+                <div className={`p-1.5 rounded-lg transition-all ${isActive ? 'bg-indigo-500/10' : ''}`}>
+                  <Library size={20} />
+                </div>
+                <span className="text-[9px] font-bold">Vault</span>
+                {isActive && (
+                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-indigo-500" />
                 )}
               </>
             )}

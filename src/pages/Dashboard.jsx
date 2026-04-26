@@ -201,6 +201,7 @@ export default function Dashboard() {
   const [portalEditTarget, setPortalEditTarget] = useState(null);
   const [isGithubDismissed, setIsGithubDismissed] = useState(() => localStorage.getItem('nexus_dismiss_github') === 'true');
   const [vaultSearch, setVaultSearch] = useState('');
+  const [taskSearch, setTaskSearch] = useState('');
   const [currentFolder, setCurrentFolder] = useState(null);
   const spotifyRef = useRef(null);
 
@@ -268,29 +269,23 @@ export default function Dashboard() {
     [activities]
   );
 
-  const filteredVault = useMemo(() => {
-    let items = vaultItems;
-    if (vaultActiveTab !== 'all') {
-      items = items.filter(v => v.vaultType === vaultActiveTab);
-    }
-    if (!vaultSearch) return items;
-    return items.filter(v =>
-      v.title?.toLowerCase().includes(vaultSearch.toLowerCase()) ||
-      v.content?.toLowerCase().includes(vaultSearch.toLowerCase())
-    );
-  }, [vaultItems, vaultSearch, vaultActiveTab]);
+  const dashboardVault = useMemo(() => {
+    return [...vaultItems].reverse().slice(0, 4);
+  }, [vaultItems]);
 
-  const filteredQueue = useMemo(() => {
-    switch (activeTab) {
-      case 'active': return queueItems.filter(t => !t.isCompleted);
-      case 'done': return queueItems.filter(t => t.isCompleted);
-      case 'high': return queueItems.filter(t => t.priority === 'high' && !t.isCompleted);
-      case 'task': return queueItems.filter(t => t.type === 'task');
-      case 'event': return queueItems.filter(t => t.type === 'event');
-      case 'folder': return queueItems.filter(t => t.type === 'folder');
-      default: return queueItems;
-    }
-  }, [queueItems, activeTab]);
+  const upcomingMissions = useMemo(() => {
+    return (activities || [])
+      .filter(m => !m.isCompleted && (m.type === 'task' || m.type === 'event'))
+      .sort((a, b) => {
+        const dateA = a.deadlineDate || a.date || '2099-12-31';
+        const dateB = b.deadlineDate || b.date || '2099-12-31';
+        if (dateA !== dateB) return dateA.localeCompare(dateB);
+        const timeA = a.deadlineTime || a.time || '23:59';
+        const timeB = b.deadlineTime || b.time || '23:59';
+        return timeA.localeCompare(timeB);
+      })
+      .slice(0, 5);
+  }, [activities]);
 
   const stats = useMemo(() => {
     const missions = queueItems.filter(a => a.type === 'task' || a.type === 'event');
@@ -315,17 +310,7 @@ export default function Dashboard() {
     };
   }, [queueItems]);
 
-  // ── ANALYSIS: UPCOMING OUTLOOK ──
-  const upcomingMissions = useMemo(() => {
-    return (queueItems || [])
-      .filter(m => !m.isCompleted && m.type !== 'folder' && !m.folderId)
-      .sort((a, b) => {
-        const timeA = new Date(`${a.deadlineDate || a.date || '2099-01-01'} ${a.deadlineTime || a.time || '23:59'}`).getTime();
-        const timeB = new Date(`${b.deadlineDate || b.date || '2099-01-01'} ${b.deadlineTime || b.time || '23:59'}`).getTime();
-        return timeA - timeB;
-      })
-      .slice(0, 2);
-  }, [queueItems]);
+
 
   const dayPct = Math.round((today.getHours() / 24) * 100);
   const displayName = operatorName || currentUser?.displayName || 'there';
@@ -584,172 +569,106 @@ export default function Dashboard() {
       </section>
 
       {/* ════════════════ CENTER COL ════════════════ */}
-      <section className="lg:col-span-6 space-y-5">
+      <section className="lg:col-span-6 space-y-5 flex flex-col">
 
-        {/* Task Queue Card */}
-        <div style={{ ...card, padding: '24px', display: 'flex', flexDirection: 'column', minHeight: '560px' }}>
+        {/* ── Missions Snapshot (Center Column) ── */}
+        <div style={{ ...card, padding: '24px', display: 'flex', flexDirection: 'column' }} className="flex-1">
           <div className="flex justify-between items-center mb-5 pb-4 border-b border-[var(--border)]">
             <div>
-              <div className="flex items-center gap-2">
-                {currentFolder && (
-                   <button 
-                     onClick={() => setCurrentFolder(null)}
-                     className="p-1.5 hover:bg-white/5 rounded-lg text-blue-500 transition-colors"
-                   >
-                     <ChevronLeft size={18} />
-                   </button>
-                )}
-                <h2 style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '16px' }}>
-                  {currentFolder ? currentFolder.title : 'My Tasks'}
-                </h2>
-              </div>
+              <h2 style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '16px' }}>Upcoming Missions</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>
-                {currentFolder ? 'Folder Content' : `${stats.completed} of ${stats.total} completed`}
+                Your top {upcomingMissions.length} priority objectives
               </p>
             </div>
-            <button onClick={() => { setEditTarget(null); setIsModalOpen(true); }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/30">Create</button>
+            <NavLink 
+              to="/tasks" 
+              className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 rounded-xl text-xs font-bold transition-all border border-blue-500/20"
+            >
+              Full View ↗
+            </NavLink>
           </div>
 
-          <div className="flex gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hide">
-            {TABS.map(tab => (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key)} className="whitespace-nowrap px-4 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                style={activeTab === tab.key ? { background: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)' } : { color: 'var(--text-muted)' }}>{tab.label}</button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-2 pr-0.5">
+          <div className="flex-1 space-y-2">
             {loading ? (
-              <div className="flex flex-col items-center justify-center h-40 gap-3">
-                <div className="w-8 h-8 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
+              <div className="flex items-center justify-center h-32">
+                <div className="w-6 h-6 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
               </div>
-            ) : filteredQueue.length === 0 ? (
+            ) : upcomingMissions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center opacity-50">
                 <div className="text-3xl mb-2">✅</div>
-                <p className="text-sm font-medium">All clear for today!</p>
+                <p className="text-sm font-medium">All objectives secured.</p>
               </div>
             ) : (
-              filteredQueue.map(item => {
+              upcomingMissions.map(item => {
                 const p = item.type === 'task' ? (priorityConfig[item.priority] || priorityConfig.mid) : null;
                 return (
-                  <div key={item.id} className={`flex items-start gap-2 p-4 rounded-2xl bg-[var(--bg-deep)] border border-[var(--border-soft)] group transition-all ${item.type === 'folder' ? 'cursor-pointer hover:border-amber-500/30' : ''}`}
-                    style={{ opacity: item.isCompleted ? 0.6 : 1 }}
-                    onClick={() => {
-                      if (item.type === 'folder') setCurrentFolder(item);
-                    }}
-                  >
-                    {item.type !== 'folder' && (
-                      <button onClick={() => toggleTask(item.id, item.isCompleted)} className="mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all bg-transparent"
-                        style={{ borderColor: item.isCompleted ? '#22c55e' : (p?.dot === 'bg-red-500' ? '#ef4444' : 'var(--border)') }}>
-                        {item.isCompleted && <CheckCircle2 size={16} className="text-green-500" />}
-                      </button>
-                    )}
-                    <div className="flex-1 min-w-0 flex items-start gap-3">
-                      {/* Icon */}
-                      <div className={`p-2 rounded-xl flex-shrink-0 ${item.type === 'event' ? 'bg-indigo-500/10 text-indigo-500' : item.type === 'folder' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                        {item.type === 'event' ? <CalendarDays size={14} /> : item.type === 'folder' ? <Folder size={14} /> : <TaskIcon size={14} className="opacity-80" />}
-                      </div>
-
-                      {/* Text Content Stack */}
-                      <div className="flex-1 min-w-0 space-y-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className={`text-sm font-bold break-all leading-tight ${item.isCompleted ? 'line-through opacity-50' : 'text-[var(--text-main)]'}`}>
-                            {item.title}
-                          </p>
-                          
-                          {/* Priority badge (Task only) */}
-                          {item.type === 'task' && !item.isCompleted && p && (
-                            <span className="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider"
-                              style={{ background: item.priority === 'high' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)', color: item.priority === 'high' ? '#ef4444' : '#22c55e' }}>
-                              {p.label}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Folder Info */}
-                        {item.type === 'folder' && (
-                          <p className="text-[10px] font-bold text-amber-500/60 uppercase tracking-wider">
-                            {(() => {
-                              const count = (activities || []).filter(a => a.folderId === item.id).length;
-                              return count === 0 ? 'Empty Folder' : `${count} ${count === 1 ? 'Mission' : 'Missions'} Inside`;
-                            })()}
-                          </p>
-                        )}
-
-                        {/* Detail & Location */}
-                        {item.detail && <p className="text-xs text-[var(--text-muted)] break-words leading-relaxed">{renderTextWithLinks(item.detail)}</p>}
-                        {item.location && <p className="text-[10px] font-bold text-blue-500 flex items-center gap-1"><ExternalLink size={10} /> {renderTextWithLinks(item.location)}</p>}
-
-                        {/* Deadline badges */}
-                        {!item.isCompleted && (item.deadlineDate || item.deadlineTime || item.date || item.time) && (
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            {(item.deadlineDate || item.date) && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
-                                <CalendarDays size={10} /> {item.deadlineDate || item.date}
-                              </span>
-                            )}
-                            {(item.deadlineTime || item.time) && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
-                                <Clock size={10} /> {item.deadlineTime || item.time}
-                              </span>
-                            )}
-                          </div>
+                  <div key={item.id} className="flex items-start gap-3 p-3.5 rounded-xl bg-[var(--bg-deep)] border border-[var(--border-soft)] group transition-all">
+                    <button 
+                      onClick={() => toggleTask(item.id, item.isCompleted)} 
+                      className="mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center bg-transparent flex-shrink-0"
+                      style={{ borderColor: p?.dot === 'bg-red-500' ? '#ef4444' : 'var(--border)' }}
+                    >
+                      {item.isCompleted && <div className="w-2 h-2 rounded-full bg-green-500" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs font-bold break-all text-[var(--text-main)] leading-tight">
+                          {item.title}
+                        </p>
+                        {item.type === 'task' && p && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wider"
+                            style={{ background: item.priority === 'high' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)', color: item.priority === 'high' ? '#ef4444' : '#22c55e' }}>
+                            {p.label}
+                          </span>
                         )}
                       </div>
-                    </div>
-
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
-                      <button onClick={(e) => { e.stopPropagation(); openEditModal(item); }} className="p-1.5 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Pencil size={14} /></button>
-                      <button onClick={(e) => { e.stopPropagation(); deleteTask(item.id); }} className="p-1.5 text-red-400 hover:bg-red-400/10 rounded-lg"><Trash2 size={14} /></button>
+                      {item.detail && <p className="text-[10px] text-[var(--text-muted)] truncate mt-1">{item.detail}</p>}
                     </div>
                   </div>
                 );
               })
             )}
           </div>
-          {stats.completed > 0 && (
-            <button onClick={purgeCompleted} className="mt-4 w-full py-2.5 rounded-xl text-xs font-semibold border border-[var(--border)] text-[var(--text-muted)] hover:bg-red-500/5 hover:text-red-500 transition-all">
-              Clear {stats.completed} Completed
-            </button>
-          )}
         </div>
 
-        {/* ── Nexus Vault Section ── */}
-        <div style={{ ...card, padding: '24px', display: 'flex', flexDirection: 'column', minHeight: '500px' }}>
-          <div className="flex items-center justify-between mb-5 pb-4 border-b border-[var(--border)]">
+        {/* ── Nexus Vault Snapshot ── */}
+        <div style={{ ...card, padding: '24px', display: 'flex', flexDirection: 'column' }} className="flex-1">
+          <div className="flex justify-between items-center mb-5 pb-4 border-b border-[var(--border)]">
             <div>
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <span className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl"><Library size={18} /></span>
-                Nexus Vault
+              <h2 className="text-base font-bold flex items-center gap-2">
+                Recent Vault Captures
               </h2>
-              <p className="text-xs text-[var(--text-muted)] mt-1">Capture ideas, notes, and resources.</p>
+              <p className="text-[11px] text-[var(--text-muted)] mt-1">Your latest deposits</p>
             </div>
-            <button onClick={() => { setEditTarget(null); setIsVaultModalOpen(true); }} className="px-4 py-2 bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/30 hover:bg-indigo-600 transition-all">Capture</button>
+            <NavLink 
+              to="/vault" 
+              className="px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl text-xs font-bold transition-all border border-indigo-500/20"
+            >
+              Full View ↗
+            </NavLink>
           </div>
 
-          <div className="flex gap-2 mb-5 overflow-x-auto pb-1 scrollbar-hide">
-            {VAULT_TABS.map(tab => (
-              <button key={tab.key} onClick={() => setVaultActiveTab(tab.key)} className="whitespace-nowrap px-4 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                style={vaultActiveTab === tab.key ? { background: 'rgba(99,102,241,0.15)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)' } : { color: 'var(--text-muted)' }}>{tab.label}</button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-4 pr-0.5">
-            {filteredVault.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center opacity-40 border-2 border-dashed border-[var(--border)] rounded-2xl">
-                <p className="text-sm font-bold">No items found</p>
-                <p className="text-[10px] mt-1">Start capturing your brilliance.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="col-span-2 flex items-center justify-center h-32">
+                <div className="w-6 h-6 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
+              </div>
+            ) : dashboardVault.length === 0 ? (
+              <div className="col-span-2 flex flex-col items-center justify-center py-12 text-center opacity-40 border border-dashed border-[var(--border)] rounded-xl">
+                <p className="text-xs font-bold">Vault is empty</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredVault.map(item => (
-                  <VaultCard
-                    key={item.id}
-                    item={item}
-                    openEditModal={openEditModal}
-                    deleteTask={deleteTask}
-                  />
-                ))}
-              </div>
+              dashboardVault.map(item => (
+                <div key={item.id} className="p-3.5 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl hover:border-indigo-500/30 transition-all">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="p-1.5 bg-indigo-500/10 text-indigo-500 rounded-lg flex-shrink-0">
+                      {item.vaultType === 'idea' ? <Lightbulb size={12} /> : item.vaultType === 'learning' ? <Library size={12} /> : <StickyNote size={12} />}
+                    </span>
+                    <h4 className="font-bold text-xs truncate text-[var(--text-main)] flex-1">{item.title}</h4>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">{item.content}</p>
+                </div>
+              ))
             )}
           </div>
         </div>

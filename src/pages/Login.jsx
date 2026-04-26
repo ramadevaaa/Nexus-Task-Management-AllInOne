@@ -9,7 +9,7 @@ export default function Login() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', overflow: 'hidden' }}>
+    <main style={{ minHeight: '100vh', backgroundColor: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', position: 'relative', overflow: 'hidden' }}>
 
       {/* Background blobs */}
       <div style={{
@@ -103,10 +103,10 @@ export default function Login() {
           Continue with Google
         </button>
 
-        <p style={{ fontSize: '12px', color: 'var(--text-faint)', marginTop: '24px' }}>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '24px' }}>
           Secure, encrypted sign-in
         </p>
       </div>
-    </div>
+    </main>
   );
 }
