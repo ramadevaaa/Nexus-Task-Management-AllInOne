@@ -1,5 +1,8 @@
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Calendar, Settings, Plus, ClipboardList, Library } from 'lucide-react';
+import {
+  Home, Calendar, Settings, Plus, ClipboardList, Library,
+  Sparkles, Moon, Sun, Search, Bell
+} from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -8,79 +11,123 @@ import NotificationManager from '../components/NotificationManager';
 export default function RootLayout() {
   const [time, setTime] = useState('');
   const { currentUser } = useAuth();
-  const { theme } = useSettings();
+  const { theme, toggleTheme } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const update = () => setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    const update = () =>
+      setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
   }, []);
 
   const handleFAB = () => {
-    // Dispatch a custom event that Dashboard listens to
     window.dispatchEvent(new CustomEvent('nexus:open-create'));
   };
 
-  const navItemCls = ({ isActive }) =>
-    `relative flex flex-col items-center gap-0.5 px-4 py-1 rounded-xl transition-all duration-200 ${isActive
-      ? 'text-blue-500'
-      : 'text-gray-500 hover:text-gray-300'
-    }`;
+  const navItems = [
+    { to: '/', label: 'Today', icon: Home, exact: true },
+    { to: '/tasks', label: 'Tasks', icon: ClipboardList },
+    { to: '/calendar', label: 'Calendar', icon: Calendar },
+    { to: '/vault', label: 'Vault', icon: Library },
+    { to: '/ai', label: 'Assistant', icon: Sparkles, highlight: true },
+  ];
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden font-sans" style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-main)' }}>
-
-      {/* ── TOP BAR ── */}
-      <header style={{ backgroundColor: 'var(--bg-card)', borderBottom: '1px solid var(--border)' }}
-        className="flex justify-between items-center px-5 py-3 z-20 shrink-0 shadow-sm">
-
-        {/* Left: Logo */}
-        <div className="flex items-center gap-3">
-          <div className="w-16 h-16 rounded-xl flex items-center justify-center p-2 shadow-lg overflow-hidden border border-white/5"
-            style={{ background: 'linear-gradient(145deg, #0f172a 0%, #171e2e 100%)' }}>
-            <img src="/nexus_tanpa_tulisan.png" alt="Nexus Logo" className="w-full h-full object-contain" />
-          </div>
-          <div>
-            <span className="font-bold text-base tracking-tight" style={{ color: 'var(--text-main)' }}>Nexus</span>
-            <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
-              style={{ backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6' }}>
-              beta
-            </span>
-          </div>
+    <div
+      className="flex flex-col h-screen overflow-hidden font-sans"
+      style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-main)' }}
+    >
+      {/* ── TOP BAR (OUTCROWD BENTO STYLE) ── */}
+      <header className="flex justify-between items-center px-6 py-3.5 z-20 shrink-0 bg-white/80 dark:bg-[#121620]/80 backdrop-blur-md border-b border-slate-200/70 dark:border-slate-800/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+        {/* Left: Brand / Logo */}
+        <div className="flex items-center gap-3.5">
+          <NavLink to="/" className="flex items-center gap-2.5 group">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 p-2 flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
+              <img
+                src="/nexus_tanpa_tulisan.png"
+                alt="Nexus Logo"
+                className="w-full h-full object-contain filter brightness-0 invert"
+              />
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-white">
+                  Nexus
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  v2.0
+                </span>
+              </div>
+              <span className="text-[10px] font-medium text-slate-400 -mt-0.5">
+                Mission Control
+              </span>
+            </div>
+          </NavLink>
         </div>
 
-        {/* Center: Desktop Nav */}
-        <nav className="hidden lg:flex items-center gap-1">
-          <NavLink to="/" end className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Dashboard</NavLink>
-          <NavLink to="/tasks" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Missions</NavLink>
-          <NavLink to="/calendar" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-blue-500/10 text-blue-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Calendar</NavLink>
-          <NavLink to="/vault" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-indigo-500/10 text-indigo-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Vault</NavLink>
-          <NavLink to="/ai" className={({ isActive }) => `px-4 py-2 text-xs font-bold rounded-xl transition-all ${isActive ? 'bg-indigo-500/10 text-indigo-400' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/5'}`}>Nexus AI</NavLink>
+        {/* Center: Desktop Navigation Pills */}
+        <nav className="hidden lg:flex items-center p-1.5 rounded-2xl bg-slate-100/90 dark:bg-slate-800/70 border border-slate-200/60 dark:border-slate-700/50 shadow-inner gap-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.exact}
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                    isActive
+                      ? item.highlight
+                        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/25'
+                        : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-slate-700/50'
+                  }`
+                }
+              >
+                <Icon size={14} className={item.highlight ? 'text-amber-300' : ''} />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
         </nav>
 
-        {/* Right: Clock + Avatar */}
+        {/* Right: Actions, Live Clock & Profile */}
         <div className="flex items-center gap-3">
-          <span className="hidden sm:block text-sm font-mono font-medium px-3 py-1.5 rounded-xl"
-            style={{ backgroundColor: 'var(--bg-deep)', color: 'var(--text-muted)' }}>
+          {/* Live Clock Pill */}
+          <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono font-bold px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             {time}
           </span>
 
+          {/* Theme Toggle Button */}
+          {toggleTheme && (
+            <button
+              onClick={toggleTheme}
+              className="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+              title="Toggle Theme"
+              aria-label="Toggle Theme"
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          )}
+
+          {/* Settings / Avatar Button */}
           <button
             onClick={() => navigate('/settings')}
-            className="flex items-center gap-2 group"
-            title="Settings">
+            className="flex items-center gap-2 group p-0.5 rounded-full hover:ring-2 hover:ring-blue-500/40 transition-all"
+            title="Settings & Profile"
+          >
             {currentUser?.photoURL ? (
               <img
                 src={currentUser.photoURL}
                 alt="avatar"
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-transparent group-hover:ring-blue-500 transition-all"
+                className="w-9 h-9 rounded-full object-cover shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm text-white"
-                style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs text-white bg-gradient-to-tr from-blue-600 to-indigo-600 shadow-md">
                 {currentUser?.email?.charAt(0).toUpperCase() || 'N'}
               </div>
             )}
@@ -88,110 +135,47 @@ export default function RootLayout() {
         </div>
       </header>
 
-      {/* ── MAIN CONTENT ── */}
-      <main className={`flex-1 overflow-y-auto ${location.pathname === '/ai' ? '' : 'px-4 py-5 pb-28 lg:pb-8 lg:px-8 max-w-[1600px] mx-auto w-full'}`}>
+      {/* ── MAIN CONTENT (DOT GRID CANVAS) ── */}
+      <main
+        className={`flex-1 overflow-y-auto bg-dot-pattern ${
+          location.pathname === '/ai'
+            ? ''
+            : 'px-4 py-6 pb-28 lg:pb-10 lg:px-8 max-w-[1600px] mx-auto w-full'
+        }`}
+      >
         <Outlet />
       </main>
 
-      {/* ── MOBILE BOTTOM NAV ── */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 px-4 pt-2 shadow-[0_-8px_32px_rgba(0,0,0,0.15)]"
-        style={{
-          backgroundColor: 'var(--bg-card)',
-          borderTop: '1px solid var(--border)',
-          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))'
-        }}>
-        <div className="flex justify-around items-center max-w-md mx-auto">
-
-          <NavLink to="/" end className={navItemCls}>
-            {({ isActive }) => (
-              <>
-                <div className={`p-1.5 rounded-lg transition-all ${isActive ? 'bg-blue-500/10' : ''}`}>
-                  <Home size={20} />
-                </div>
-                <span className="text-[9px] font-bold">Home</span>
-                {isActive && (
-                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-blue-500" />
-                )}
-              </>
-            )}
-          </NavLink>
-
-          <NavLink to="/tasks" className={navItemCls}>
-            {({ isActive }) => (
-              <>
-                <div className={`p-1.5 rounded-lg transition-all ${isActive ? 'bg-blue-500/10' : ''}`}>
-                  <ClipboardList size={20} />
-                </div>
-                <span className="text-[9px] font-bold">Missions</span>
-                {isActive && (
-                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-blue-500" />
-                )}
-              </>
-            )}
-          </NavLink>
-
-          {/* NEXUS AI CENTER BUTTON */}
-          <NavLink to="/ai" className={navItemCls}>
-            {({ isActive }) => (
-              <>
-                <div className={`p-1.5 rounded-lg transition-all ${isActive ? 'bg-indigo-500/10' : ''}`}>
-                  <div className="relative">
-                    <div className={`absolute -inset-1 blur-sm rounded-full bg-indigo-500 opacity-20 ${isActive ? 'animate-pulse' : 'hidden'}`} />
-                    <span className={`relative text-xl ${isActive ? 'text-indigo-500' : 'grayscale opacity-70'}`}>✨</span>
-                  </div>
-                </div>
-                <span className={`text-[9px] font-bold ${isActive ? 'text-indigo-400' : ''}`}>Nexus AI</span>
-                {isActive && (
-                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-indigo-500" />
-                )}
-              </>
-            )}
-          </NavLink>
-
-          <NavLink to="/calendar" className={navItemCls}>
-            {({ isActive }) => (
-              <>
-                <div className={`p-1.5 rounded-lg transition-all ${isActive ? 'bg-blue-500/10' : ''}`}>
-                  <Calendar size={20} />
-                </div>
-                <span className="text-[9px] font-bold">Calendar</span>
-                {isActive && (
-                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-blue-500" />
-                )}
-              </>
-            )}
-          </NavLink>
-
-          <NavLink to="/vault" className={navItemCls}>
-            {({ isActive }) => (
-              <>
-                <div className={`p-1.5 rounded-lg transition-all ${isActive ? 'bg-indigo-500/10' : ''}`}>
-                  <Library size={20} />
-                </div>
-                <span className="text-[9px] font-bold">Vault</span>
-                {isActive && (
-                  <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-0.5 rounded-full bg-indigo-500" />
-                )}
-              </>
-            )}
-          </NavLink>
-
+      {/* ── MOBILE FLOATING BOTTOM NAV ── */}
+      <nav className="lg:hidden fixed bottom-4 left-4 right-4 z-50 p-2 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800 shadow-2xl">
+        <div className="flex justify-around items-center">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.exact}
+                className={({ isActive }) =>
+                  `flex flex-col items-center gap-1 px-3 py-1.5 rounded-2xl transition-all ${
+                    isActive
+                      ? 'text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-950/50'
+                      : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 font-medium'
+                  }`
+                }
+              >
+                <Icon size={18} />
+                <span className="text-[10px]">{item.label}</span>
+              </NavLink>
+            );
+          })}
         </div>
       </nav>
 
-      {/* ── FAB (Mobile only) ── */}
-      {location.pathname === '/' && (
-        <button
-          className="fab lg:hidden"
-          onClick={handleFAB}
-          aria-label="Create task or event">
-          <Plus size={24} strokeWidth={2.5} />
-        </button>
-      )}
 
-      {/* ── GLOBAL ALARM / NOTIFICATIONS ── */}
+
+      {/* ── GLOBAL ALARMS & NOTIFICATIONS ── */}
       <NotificationManager />
-
     </div>
   );
 }

@@ -8,15 +8,15 @@
   "theme_color": "#3b82f6",
   "icons": [
     {
-      "src": "favicon.svg",
+      "src": "/nexus_logo.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "favicon.svg",
+      "src": "/nexus_logo.png",
       "sizes": "512x512",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]

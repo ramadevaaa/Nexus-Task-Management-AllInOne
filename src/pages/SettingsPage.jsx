@@ -1,203 +1,180 @@
 import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { ChevronLeft, Sun, Moon, User, Clock, Timer, LogOut } from 'lucide-react';
-
-const inputBase = {
-  width: '100%',
-  padding: '12px 16px',
-  borderRadius: '12px',
-  fontSize: '14px',
-  fontWeight: 500,
-  outline: 'none',
-  fontFamily: 'inherit',
-  border: '1px solid var(--border)',
-  backgroundColor: 'var(--bg-deep)',
-  color: 'var(--text-main)',
-  transition: 'border-color 0.2s',
-};
-
-// ── FIXED: Moved components OUTSIDE to prevent focus loss during renders ──
-const Section = ({ icon: Icon, title, children }) => (
-  <div style={{
-    backgroundColor: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: '18px',
-    overflow: 'hidden',
-    boxShadow: 'var(--shadow-card)',
-  }}>
-    <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-      <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(59,130,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={16} style={{ color: 'var(--accent)' }} />
-      </div>
-      <p style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>{title}</p>
-    </div>
-    <div style={{ padding: '20px 24px' }}>{children}</div>
-  </div>
-);
-
-const Label = ({ children }) => (
-  <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '8px', letterSpacing: '0.02em' }}>
-    {children}
-  </p>
-);
+import { useState } from 'react';
+import {
+  ChevronLeft, Sun, Moon, User, Clock, Timer, LogOut,
+  Sparkles, Check, ShieldCheck
+} from 'lucide-react';
 
 export default function SettingsPage() {
-  const { operatorName, theme, toggleTheme, focusDuration, breakDuration,
-          setOperatorName, setFocusDuration, setBreakDuration } = useSettings();
+  const {
+    operatorName, theme, toggleTheme, focusDuration, breakDuration,
+    setOperatorName, setFocusDuration, setBreakDuration
+  } = useSettings();
   const { logout, currentUser } = useAuth();
   const navigate = useNavigate();
 
-  // Initialize draft only once
-  const [draft, setDraft] = useState({ 
-    operatorName: operatorName || '', 
-    focusDuration: focusDuration || 25, 
-    breakDuration: breakDuration || 5 
+  const [draft, setDraft] = useState({
+    operatorName: operatorName || '',
+    focusDuration: focusDuration || 25,
+    breakDuration: breakDuration || 5,
   });
+  const [savedToast, setSavedToast] = useState(false);
 
-  // Handle save
   const handleSave = () => {
     setOperatorName(draft.operatorName);
     setFocusDuration(draft.focusDuration);
     setBreakDuration(draft.breakDuration);
-    navigate('/');
+    setSavedToast(true);
+    setTimeout(() => {
+      setSavedToast(false);
+      navigate('/');
+    }, 800);
   };
 
   return (
-    <div style={{ maxWidth: '560px', margin: '0 auto', paddingBottom: '100px' }} className="lg:pb-8 animate-fade-in text-main">
+    <div className="max-w-2xl mx-auto space-y-6 pb-20 animate-fade-in">
+      {/* Top Header */}
+      <div className="bento-card p-6 flex items-center justify-between bg-white dark:bg-[#121620]">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+            aria-label="Go back"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
+              Settings & Preferences
+            </h1>
+            <p className="text-xs text-slate-400">
+              Customize your workspace, timer durations, and theme
+            </p>
+          </div>
+        </div>
 
-      {/* Back */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 mb-6 transition-colors group"
-        style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-        <ChevronLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" /> Back
-      </button>
-
-      {/* Page title */}
-      <div style={{ marginBottom: '24px' }}>
-        <p style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent)', marginBottom: '6px', tracking: '0.1em', uppercase: 'true' }}>
-          CONFIGURATION
-        </p>
-        <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Settings</h1>
+        <button
+          onClick={handleSave}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+        >
+          {savedToast ? <Check size={15} /> : <Sparkles size={15} />}
+          <span>{savedToast ? 'Saved!' : 'Save Changes'}</span>
+        </button>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* ── PROFILE & OPERATOR CARD ── */}
+      <div className="bento-card p-6 bg-white dark:bg-[#121620] space-y-4">
+        <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+            <User size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Operator Profile</h3>
+            <p className="text-xs text-slate-400">Your callsign and workspace identity</p>
+          </div>
+        </div>
 
-        {/* ── Account ── */}
-        <Section icon={User} title="Account">
-          {currentUser && (
-            <div className="flex flex-col sm:flex-row items-center sm:items-center gap-5">
-              <div className="flex items-center gap-4 flex-1 w-full translate-x-1 sm:translate-x-0">
-                {currentUser.photoURL ? (
-                  <img src={currentUser.photoURL} alt="avatar" style={{ width: '52px', height: '52px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
-                ) : (
-                  <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 700, color: '#fff' }}>
-                    {currentUser.email?.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <p style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.2px' }}>{currentUser.displayName || 'User'}</p>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '1px' }} className="truncate max-w-[180px] sm:max-w-none">{currentUser.email}</p>
-                </div>
-              </div>
-              <button
-                onClick={logout}
-                className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl transition-all w-full sm:w-auto mt-2 sm:mt-0"
-                style={{ fontSize: '13px', fontWeight: 800, color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.08)', cursor: 'pointer', fontFamily: 'inherit' }}>
-                <LogOut size={14} /> Sign out
-              </button>
-            </div>
-          )}
-        </Section>
-
-        {/* ── Display Name ── */}
-        <Section icon={User} title="Greeting Name">
-          <Label>What should Nexus call you?</Label>
+        <div>
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+            Operator Name
+          </label>
           <input
             type="text"
             value={draft.operatorName}
-            onChange={e => setDraft(d => ({ ...d, operatorName: e.target.value }))}
-            placeholder="Name or Alias..."
-            style={inputBase}
-            autoFocus
+            onChange={(e) => setDraft({ ...draft, operatorName: e.target.value })}
+            placeholder="e.g. Commander Shepard"
+            className="w-full h-11 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           />
-        </Section>
-
-        {/* ── Appearance ── */}
-        <Section icon={theme === 'dark' ? Moon : Sun} title="Theme Mode">
-          <div style={{ display: 'flex', gap: '10px' }}>
-            {['dark', 'light'].map(t => (
-              <button key={t}
-                onClick={() => t !== theme && toggleTheme()}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '14px',
-                  border: theme === t ? '2px solid var(--accent)' : '1px solid var(--border)',
-                  backgroundColor: theme === t ? 'rgba(59,130,246,0.1)' : 'var(--bg-deep)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  fontFamily: 'inherit',
-                  transition: 'all 0.2s',
-                }}>
-                <span style={{ fontSize: '16px' }}>{t === 'dark' ? '🌙' : '☀️'}</span>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: theme === t ? 'var(--accent)' : 'var(--text-muted)', textTransform: 'capitalize' }}>{t}</span>
-              </button>
-            ))}
-          </div>
-        </Section>
-
-        {/* ── Timer ── */}
-        <Section icon={Timer} title="Timer Config">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div>
-              <Label>Focus (min)</Label>
-              <input
-                type="number"
-                value={draft.focusDuration}
-                onChange={e => setDraft(d => ({ ...d, focusDuration: Number(e.target.value) }))}
-                style={{ ...inputBase, textAlign: 'center', fontSize: '18px', fontWeight: 700 }}
-              />
-            </div>
-            <div>
-              <Label>Break (min)</Label>
-              <input
-                type="number"
-                value={draft.breakDuration}
-                onChange={e => setDraft(d => ({ ...d, breakDuration: Number(e.target.value) }))}
-                style={{ ...inputBase, textAlign: 'center', fontSize: '18px', fontWeight: 700 }}
-              />
-            </div>
-          </div>
-        </Section>
-
-        {/* ── Save Button ── */}
-        <button
-          onClick={handleSave}
-          className="hover-lift"
-          style={{
-            width: '100%',
-            padding: '18px',
-            borderRadius: '18px',
-            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-            color: '#fff',
-            fontSize: '15px',
-            fontWeight: 800,
-            border: 'none',
-            cursor: 'pointer',
-            boxShadow: '0 8px 24px rgba(37, 99, 235, 0.3)',
-            fontFamily: 'inherit',
-            transition: 'all 0.2s',
-          }}>
-          Save & Update Dashboard
-        </button>
-
+        </div>
       </div>
+
+      {/* ── POMODORO / FOCUS TIMER CARD ── */}
+      <div className="bento-card p-6 bg-white dark:bg-[#121620] space-y-4">
+        <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <Timer size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Focus Timer Durations</h3>
+            <p className="text-xs text-slate-400">Configure Pomodoro intervals</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+              Focus Duration (minutes)
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="120"
+              value={draft.focusDuration}
+              onChange={(e) => setDraft({ ...draft, focusDuration: Number(e.target.value) })}
+              className="w-full h-11 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+              Break Duration (minutes)
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="60"
+              value={draft.breakDuration}
+              onChange={(e) => setDraft({ ...draft, breakDuration: Number(e.target.value) })}
+              className="w-full h-11 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── APPEARANCE CARD ── */}
+      <div className="bento-card p-6 bg-white dark:bg-[#121620] space-y-4">
+        <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+            {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Appearance & Theme</h3>
+            <p className="text-xs text-slate-400">Switch between Bento Light and Obsidian Dark</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
+          <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+            Current Theme: {theme === 'dark' ? 'Obsidian Dark' : 'Outcrowd Bento Light'}
+          </span>
+          <button
+            onClick={toggleTheme}
+            className="px-4 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-xs font-bold text-slate-800 dark:text-white transition-colors"
+          >
+            Switch to {theme === 'dark' ? 'Light' : 'Dark'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── ACCOUNT / LOGOUT CARD ── */}
+      {currentUser && (
+        <div className="bento-card p-6 bg-white dark:bg-[#121620] flex items-center justify-between">
+          <div>
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white">Logged in as</h4>
+            <p className="text-xs text-slate-400">{currentUser.email}</p>
+          </div>
+
+          <button
+            onClick={logout}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs font-bold transition-colors"
+          >
+            <LogOut size={14} />
+            <span>Sign Out</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,33 +1,25 @@
-import { useState, useEffect } from 'react';
-import { X, CalendarDays, Pencil, Folder } from 'lucide-react';
-
-const TaskIcon = ({ size = 16, className = "" }) => (
-  <img 
-    src="/task.svg" 
-    alt="Task" 
-    style={{ width: size, height: size }} 
-    className={`invert brightness-0 invert-[1] ${className}`} 
-  />
-);
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, CalendarDays, Folder, CheckCircle2, MapPin } from 'lucide-react';
 
 export default function ActivityModal({ isOpen, onClose, onSave, activity = null, defaultType = 'task', defaultDate = '' }) {
-  const [type, setType]             = useState(defaultType);
-  const [taskTitle, setTaskTitle]   = useState('');
+  const titleInputRef = useRef(null);
+  const [type, setType] = useState(defaultType);
+  const [taskTitle, setTaskTitle] = useState('');
   const [taskDetail, setTaskDetail] = useState('');
   const [taskPriority, setTaskPriority] = useState('mid');
   const [deadlineDate, setDeadlineDate] = useState('');
   const [deadlineTime, setDeadlineTime] = useState('');
-  const [eventTitle, setEventTitle]     = useState('');
+  const [eventTitle, setEventTitle] = useState('');
   const [eventLocation, setEventLocation] = useState('');
-  const [eventDate, setEventDate]   = useState(defaultDate);
-  const [eventTime, setEventTime]   = useState('');
+  const [eventDate, setEventDate] = useState(defaultDate);
+  const [eventTime, setEventTime] = useState('');
   const [folderTitle, setFolderTitle] = useState('');
 
-  // Handle Edit Mode: Populate state if an activity is provided
   useEffect(() => {
     if (isOpen) {
       if (activity) {
-        setType(activity.type);
+        setType(activity.type || 'task');
         if (activity.type === 'task') {
           setTaskTitle(activity.title || '');
           setTaskDetail(activity.detail || '');
@@ -43,242 +35,341 @@ export default function ActivityModal({ isOpen, onClose, onSave, activity = null
           setFolderTitle(activity.title || '');
         }
       } else {
-        // Reset or set defaults for new item
         setType(defaultType);
+        setTaskTitle('');
+        setTaskDetail('');
+        setTaskPriority('mid');
+        setDeadlineDate('');
+        setDeadlineTime('');
+        setEventTitle('');
+        setEventLocation('');
         setEventDate(defaultDate || '');
-        reset();
+        setEventTime('');
+        setFolderTitle('');
       }
     }
   }, [isOpen, activity, defaultType, defaultDate]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previousFocus = document.activeElement;
+    const focusTimer = window.setTimeout(() => titleInputRef.current?.focus(), 0);
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocus?.focus();
+    };
+  }, [isOpen, onClose]);
 
   function reset() {
-    setTaskTitle(''); setTaskDetail(''); setTaskPriority('mid');
-    setDeadlineDate(''); setDeadlineTime('');
-    setEventTitle(''); setEventLocation(''); setEventDate(''); setEventTime('');
+    setTaskTitle('');
+    setTaskDetail('');
+    setTaskPriority('mid');
+    setDeadlineDate('');
+    setDeadlineTime('');
+    setEventTitle('');
+    setEventLocation('');
+    setEventDate('');
+    setEventTime('');
     setFolderTitle('');
   }
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const data = type === 'task' ? { 
-      type: 'task', 
-      title: taskTitle.trim(), 
-      detail: taskDetail.trim(), 
-      priority: taskPriority, 
-      deadlineDate: deadlineDate || null, 
-      deadlineTime: deadlineTime || null 
-    } : type === 'event' ? { 
-      type: 'event', 
-      title: eventTitle.trim(), 
-      location: eventLocation.trim(), 
-      date: eventDate, 
-      time: eventTime 
-    } : {
-      type: 'folder',
-      title: folderTitle.trim(),
-    };
+    const data =
+      type === 'task'
+        ? {
+            type: 'task',
+            title: taskTitle.trim(),
+            detail: taskDetail.trim(),
+            priority: taskPriority,
+            deadlineDate: deadlineDate || null,
+            deadlineTime: deadlineTime || null,
+          }
+        : type === 'event'
+        ? {
+            type: 'event',
+            title: eventTitle.trim(),
+            location: eventLocation.trim(),
+            date: eventDate,
+            time: eventTime,
+          }
+        : {
+            type: 'folder',
+            title: folderTitle.trim(),
+          };
 
-    if (type === 'task' && (!taskTitle.trim() || !deadlineDate || !deadlineTime)) return;
+    if (type === 'task' && !taskTitle.trim()) return;
     if (type === 'event' && (!eventTitle.trim() || !eventDate || !eventTime)) return;
     if (type === 'folder' && !folderTitle.trim()) return;
 
-    onSave(data, activity?.id); // Pass ID if editing
+    onSave(data, activity?.id);
     reset();
     onClose();
   };
 
-  const handleClose = () => { reset(); onClose(); };
-
-  const inputStyle = {
-    width: '100%',
-    padding: '12px 16px',
-    borderRadius: '12px',
-    fontSize: '14px',
-    fontWeight: 500,
-    outline: 'none',
-    fontFamily: 'inherit',
-    border: '1px solid #2a3347',
-    backgroundColor: '#0d1117',
-    color: '#f1f5f9',
-    transition: 'border-color 0.2s',
-  };
-
-  const priorities = [
-    { value: 'high', label: '🔥 High',   color: '#ef4444', bg: 'rgba(239,68,68,0.12)',   active: 'rgba(239,68,68,0.2)' },
-    { value: 'mid',  label: '⚡ Mid',    color: '#eab308', bg: 'rgba(234,179,8,0.12)',   active: 'rgba(234,179,8,0.2)' },
-    { value: 'low',  label: '🌿 Low',    color: '#22c55e', bg: 'rgba(34,197,94,0.12)',   active: 'rgba(34,197,94,0.2)' },
-  ];
-
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-      onClick={handleClose}>
-      <div
-        style={{ backgroundColor: '#161b27', border: '1px solid #252f42', borderRadius: '24px', width: '100%', maxWidth: '440px', boxShadow: '0 24px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}
-        onClick={e => e.stopPropagation()}>
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+          />
 
-        {/* Header */}
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #252f42', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {activity ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#60a5fa', fontWeight: 800 }}>
-                <Pencil size={18} />
-                <span>Edit {activity.type === 'task' ? 'Task' : 'Event'}</span>
+          {/* Modal Card */}
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="activity-modal-title"
+            initial={{ opacity: 0, scale: 0.98, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: 8 }}
+            transition={{ duration: 0.16, ease: 'easeOut' }}
+            className="relative z-50 w-full max-w-lg rounded-2xl bg-white dark:bg-[#121620] p-6 shadow-2xl border border-slate-200/80 dark:border-slate-800"
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                  {activity ? 'Editing' : 'New item'}
+                </span>
+                <h2 id="activity-modal-title" className="text-lg font-bold text-slate-900 dark:text-white">
+                  {type === 'task' ? (activity ? 'Edit task' : 'Add task') : type === 'event' ? (activity ? 'Edit event' : 'Add event') : (activity ? 'Edit folder' : 'Add folder')}
+                </h2>
               </div>
-            ) : (
-              ['task', 'event', 'folder'].map(t => (
-                <button key={t}
-                  type="button"
-                  onClick={() => setType(t)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    padding: '8px 12px', borderRadius: '12px', fontSize: '11px', fontWeight: 700,
-                    border: type === t ? '1px solid rgba(59,130,246,0.5)' : '1px solid #252f42',
-                    backgroundColor: type === t ? 'rgba(59,130,246,0.15)' : 'transparent',
-                    color: type === t ? '#60a5fa' : '#8b9ab5',
-                    cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
-                  }}>
-                  <div className={`p-1.5 rounded-lg ${type === t ? (t === 'event' ? 'bg-indigo-500/20' : t === 'folder' ? 'bg-amber-400/20' : 'bg-blue-400/20') : 'bg-white/5'}`}>
-                    {t === 'task' ? <TaskIcon size={14} /> : t === 'event' ? <CalendarDays size={14} /> : <Folder size={14} className="text-amber-400" />}
-                  </div>
-                  <span>{t.toUpperCase()}</span>
-                </button>
-              ))
-             )}
-          </div>
-          <button
-            onClick={handleClose}
-            style={{ padding: '6px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', color: '#8b9ab5', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-            <X size={18} />
-          </button>
-        </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit}>
-          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-            {type === 'task' ? (<>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Task title</label>
-                <input
-                  autoFocus type="text" value={taskTitle}
-                  onChange={e => setTaskTitle(e.target.value)} required
-                  style={inputStyle} placeholder="e.g. Finish the design mockup"
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Details (optional)</label>
-                <textarea
-                  value={taskDetail} onChange={e => setTaskDetail(e.target.value)}
-                  style={{ ...inputStyle, height: '88px', resize: 'none' }}
-                  placeholder="Add notes, links, or context..."
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Priority</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {priorities.map(p => (
-                    <button key={p.value} type="button"
-                      onClick={() => setTaskPriority(p.value)}
-                      style={{
-                        flex: 1, padding: '10px 4px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
-                        border: taskPriority === p.value ? `1px solid ${p.color}` : '1px solid #2a3347',
-                        backgroundColor: taskPriority === p.value ? p.active : p.bg,
-                        color: p.color, cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit',
-                      }}>
-                      {p.label}
+            {/* Type Switcher Pills */}
+            {!activity && (
+              <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60 mb-5">
+                {[
+                  { key: 'task', label: 'Mission / Task', icon: CheckCircle2 },
+                  { key: 'event', label: 'Event / Meeting', icon: CalendarDays },
+                  { key: 'folder', label: 'Folder', icon: Folder },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isSel = type === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setType(tab.key)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                        isSel
+                          ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+                          : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                      }`}
+                    >
+                      <Icon size={14} />
+                      <span>{tab.label}</span>
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Date (Optional)</label>
-                  <input
-                    type="date" value={deadlineDate}
-                    onChange={e => setDeadlineDate(e.target.value)}
-                    required
-                    style={{ ...inputStyle, colorScheme: 'dark' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Time</label>
-                  <input
-                    type="time" value={deadlineTime}
-                    onChange={e => setDeadlineTime(e.target.value)}
-                    required
-                    style={{ ...inputStyle, colorScheme: 'dark' }}
-                  />
-                </div>
-              </div>
-            </>) : type === 'event' ? (<>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Event title</label>
-                <input
-                  autoFocus type="text" value={eventTitle}
-                  onChange={e => setEventTitle(e.target.value)} required
-                  style={inputStyle} placeholder="e.g. Team sync meeting"
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Location / Link</label>
-                <input
-                  type="text" value={eventLocation}
-                  onChange={e => setEventLocation(e.target.value)}
-                  style={inputStyle} placeholder="Zoom link, room, address..."
-                />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Date</label>
-                  <input
-                    type="date" value={eventDate}
-                    onChange={e => setEventDate(e.target.value)} required
-                    style={{ ...inputStyle, colorScheme: 'dark' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Time</label>
-                  <input
-                    type="time" value={eventTime}
-                    onChange={e => setEventTime(e.target.value)} required
-                    style={{ ...inputStyle, colorScheme: 'dark' }}
-                  />
-                </div>
-              </div>
-            </>) : (<>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#8b9ab5', marginBottom: '8px', textTransform: 'uppercase' }}>Folder name</label>
-                <input
-                  autoFocus type="text" value={folderTitle}
-                  onChange={e => setFolderTitle(e.target.value)} required
-                  style={inputStyle} placeholder="e.g. Work Projects, Personal Goals..."
-                />
-              </div>
-              <div style={{ p: '12px', backgroundColor: 'rgba(234,179,8,0.05)', borderRadius: '12px', border: '1px dashed rgba(234,179,8,0.2)' }}>
-                <p style={{ fontSize: '11px', color: '#eab308', textAlign: 'center', margin: 0 }}>
-                  Folders help you group related missions together.
-                </p>
-              </div>
-            </>)}
+            )}
 
-          </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Task Form */}
+              {type === 'task' && (
+                <>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      Task Title *
+                    </label>
+                    <input
+                       ref={titleInputRef}
+                      type="text"
+                      required
+                      value={taskTitle}
+                      onChange={(e) => setTaskTitle(e.target.value)}
+                      placeholder="e.g. Design BrandBook Layout"
+                      className="w-full h-11 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                  </div>
 
-          {/* Footer */}
-          <div style={{ padding: '16px 24px', borderTop: '1px solid #252f42', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-            <button type="button" onClick={handleClose}
-              style={{ padding: '12px 24px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, border: '1px solid #252f42', backgroundColor: 'transparent', color: '#8b9ab5', cursor: 'pointer', fontFamily: 'inherit' }}>
-              Cancel
-            </button>
-            <button type="submit"
-              style={{ padding: '12px 28px', borderRadius: '12px', fontSize: '13px', fontWeight: 800, background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 15px rgba(59,130,246,0.4)' }}>
-              {activity ? 'Save Changes' : '+ Add Mission'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      Task Description
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={taskDetail}
+                      onChange={(e) => setTaskDetail(e.target.value)}
+                      placeholder="Add subtasks, notes, or details..."
+                      className="w-full p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Due date
+                      </label>
+                      <input
+                        type="date"
+                        value={deadlineDate}
+                        onChange={(e) => setDeadlineDate(e.target.value)}
+                        className="w-full h-11 px-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Due time
+                      </label>
+                      <input
+                        type="time"
+                        value={deadlineTime}
+                        onChange={(e) => setDeadlineTime(e.target.value)}
+                        className="w-full h-11 px-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                      Priority Level
+                    </label>
+                    <div className="flex gap-2">
+                      {[
+                        { key: 'low', label: 'Low', color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40' },
+                        { key: 'mid', label: 'Medium', color: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40' },
+                        { key: 'high', label: 'High 🔥', color: 'text-red-600 bg-red-50 dark:bg-red-950/40' },
+                      ].map((p) => (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => setTaskPriority(p.key)}
+                          className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
+                            taskPriority === p.key
+                              ? `${p.color} border-current shadow-sm`
+                              : 'border-slate-200 dark:border-slate-700 text-slate-400'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Event Form */}
+              {type === 'event' && (
+                <>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      Event / Meeting Title *
+                    </label>
+                    <input
+                       ref={titleInputRef}
+                      type="text"
+                      required
+                      value={eventTitle}
+                      onChange={(e) => setEventTitle(e.target.value)}
+                      placeholder="e.g. Meeting with marketing team"
+                      className="w-full h-11 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      Location or Video Link
+                    </label>
+                    <div className="relative">
+                      <MapPin size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={eventLocation}
+                        onChange={(e) => setEventLocation(e.target.value)}
+                        placeholder="Google Meet, Zoom, or Office Room 3"
+                        className="w-full h-11 pl-9 pr-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Event Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={eventDate}
+                        onChange={(e) => setEventDate(e.target.value)}
+                        className="w-full h-11 px-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Event Time *
+                      </label>
+                      <input
+                        type="time"
+                        required
+                        value={eventTime}
+                        onChange={(e) => setEventTime(e.target.value)}
+                        className="w-full h-11 px-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Folder Form */}
+              {type === 'folder' && (
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    Folder Name *
+                  </label>
+                  <input
+                    ref={titleInputRef}
+                    type="text"
+                    required
+                    value={folderTitle}
+                    onChange={(e) => setFolderTitle(e.target.value)}
+                    placeholder="e.g. Project Phoenix"
+                    className="w-full h-11 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+                >
+                   <span>{activity ? 'Save changes' : 'Add item'}</span>
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }

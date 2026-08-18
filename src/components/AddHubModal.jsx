@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, Link2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Link2, Sparkles, Globe } from 'lucide-react';
 
 const EMOJI_OPTIONS = ['🔗', '📋', '🗂️', '🧩', '🛠️', '📊', '🎯', '💡', '📝', '🚀', '🌐', '💼'];
 
 export default function AddHubModal({ isOpen, onClose, onSave, portal = null }) {
-  const [title, setTitle]         = useState(portal?.title || '');
-  const [url, setUrl]             = useState(portal?.url || '');
-  const [icon, setIcon]           = useState(portal?.icon || '🔗');
-  const [showPicker, setShowPicker] = useState(false);
+  const [title, setTitle] = useState(portal?.title || '');
+  const [url, setUrl] = useState(portal?.url || '');
+  const [icon, setIcon] = useState(portal?.icon || '🔗');
 
-  // Update state if portal prop changes
   useEffect(() => {
     if (portal) {
       setTitle(portal.title || '');
@@ -22,149 +21,132 @@ export default function AddHubModal({ isOpen, onClose, onSave, portal = null }) 
     }
   }, [portal, isOpen]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!title.trim() || !url.trim()) return;
     const fullUrl = url.startsWith('http') ? url : `https://${url}`;
     onSave({ title: title.trim(), url: fullUrl, icon }, portal?.id);
     if (!portal) {
-       setTitle(''); setUrl(''); setIcon('🔗');
+      setTitle('');
+      setUrl('');
+      setIcon('🔗');
     }
     onClose();
   };
 
-  const inputStyle = {
-    width: '100%',
-    padding: '12px 16px',
-    borderRadius: '12px',
-    fontSize: '14px',
-    fontWeight: 500,
-    outline: 'none',
-    fontFamily: 'inherit',
-    border: '1px solid #2a3347',
-    backgroundColor: '#0d1117',
-    color: '#f1f5f9',
-    transition: 'border-color 0.2s',
-  };
-
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
-      onClick={onClose}>
-      <div
-        style={{ backgroundColor: '#161b27', border: '1px solid #252f42', borderRadius: '24px', width: '100%', maxWidth: '400px', boxShadow: '0 24px 80px rgba(0,0,0,0.5)', overflow: 'hidden' }}
-        onClick={e => e.stopPropagation()}>
-
-        {/* Header */}
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid #252f42', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Link2 size={16} style={{ color: '#60a5fa' }} />
-            </div>
-            <p style={{ fontSize: '15px', fontWeight: 700, color: '#f1f5f9' }}>{portal ? 'Edit Quick Portal' : 'Add Quick Portal'}</p>
-          </div>
-          <button
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             onClick={onClose}
-            style={{ padding: '6px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', color: '#8b9ab5', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#252f42'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-            <X size={18} />
-          </button>
-        </div>
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+          />
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-            {/* Icon picker */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#8b9ab5', marginBottom: '8px' }}>Icon</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <input
-                  type="text"
-                  value={icon}
-                  onChange={e => setIcon(e.target.value)}
-                  style={{
-                    width: '56px', height: '56px', fontSize: '24px', textAlign: 'center',
-                    borderRadius: '14px', border: '1px solid #2a3347', backgroundColor: '#0d1117',
-                    color: '#f1f5f9', outline: 'none', transition: 'border-color 0.15s',
-                  }}
-                  onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                  onBlur={e => e.target.style.borderColor = '#2a3347'}
-                  maxLength={5}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPicker(!showPicker)}
-                  style={{
-                    fontSize: '13px', color: '#3b82f6', background: 'none',
-                    border: 'none', cursor: 'pointer', fontWeight: 600, padding: '4px 8px', borderRadius: '8px'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(59,130,246,0.1)'}
-                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  {showPicker ? 'Close presets' : 'Choose preset'}
-                </button>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="relative z-50 w-full max-w-md rounded-3xl bg-white dark:bg-[#121620] p-6 shadow-2xl border border-slate-200/80 dark:border-slate-800"
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <span className="text-xs font-bold text-blue-500 uppercase tracking-wider">
+                  Quick Portal
+                </span>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  {portal ? 'Edit Portal' : 'Add Portal Link'}
+                </h2>
               </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-              {showPicker && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '6px', marginTop: '10px', padding: '12px', backgroundColor: '#0d1117', border: '1px solid #2a3347', borderRadius: '14px' }}>
-                  {EMOJI_OPTIONS.map(e => (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Emoji Icon Selector */}
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
+                  Choose Icon
+                </label>
+                <div className="grid grid-cols-6 gap-2 p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                  {EMOJI_OPTIONS.map((em) => (
                     <button
-                      key={e} type="button"
-                      onClick={() => { setIcon(e); setShowPicker(false); }}
-                      style={{
-                        fontSize: '22px', padding: '8px', borderRadius: '10px', border: 'none', cursor: 'pointer', transition: 'background 0.15s',
-                        backgroundColor: icon === e ? 'rgba(59,130,246,0.2)' : 'transparent',
-                      }}
-                      onMouseEnter={e2 => e2.currentTarget.style.backgroundColor = 'rgba(59,130,246,0.12)'}
-                      onMouseLeave={e2 => e2.currentTarget.style.backgroundColor = icon === e ? 'rgba(59,130,246,0.2)' : 'transparent'}>
-                      {e}
+                      key={em}
+                      type="button"
+                      onClick={() => setIcon(em)}
+                      className={`h-9 rounded-xl flex items-center justify-center text-base transition-all ${
+                        icon === em
+                          ? 'bg-blue-600 text-white scale-110 shadow-sm'
+                          : 'hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {em}
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* App Name */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#8b9ab5', marginBottom: '8px' }}>App name</label>
-              <input autoFocus type="text" value={title} onChange={e => setTitle(e.target.value)} required
-                style={inputStyle} placeholder="e.g. Notion, Figma, Linear"
-                onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                onBlur={e => e.target.style.borderColor = '#2a3347'}
-              />
-            </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Portal Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. Figma Workspace"
+                  className="w-full h-11 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                />
+              </div>
 
-            {/* URL */}
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#8b9ab5', marginBottom: '8px' }}>URL</label>
-              <input type="text" value={url} onChange={e => setUrl(e.target.value)} required
-                style={inputStyle} placeholder="https://notion.so"
-                onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                onBlur={e => e.target.style.borderColor = '#2a3347'}
-              />
-            </div>
-          </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Web URL *
+                </label>
+                <div className="relative">
+                  <Globe size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="figma.com or https://..."
+                    className="w-full h-11 pl-9 pr-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                  />
+                </div>
+              </div>
 
-          {/* Footer */}
-          <div style={{ padding: '16px 24px', borderTop: '1px solid #252f42', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-            <button type="button" onClick={onClose}
-              style={{ padding: '10px 20px', borderRadius: '12px', fontSize: '13px', fontWeight: 600, border: '1px solid #252f42', backgroundColor: 'transparent', color: '#8b9ab5', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
-              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#252f42'}
-              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-              Cancel
-            </button>
-            <button type="submit"
-              style={{ padding: '10px 24px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#fff', border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 3px 12px rgba(59,130,246,0.4)', transition: 'all 0.15s' }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'none'}>
-              {portal ? 'Update Portal' : 'Add Portal'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+              <div className="flex items-center justify-end gap-2.5 pt-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+                >
+                  <Sparkles size={14} />
+                  <span>{portal ? 'Update Portal' : 'Save Portal'}</span>
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }

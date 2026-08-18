@@ -1,17 +1,18 @@
-import { useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { useTasks } from '../hooks/useTasks';
 import {
-  Plus, Trash2, ExternalLink, ChevronLeft, CheckCircle2, 
-  CalendarDays, Clock, X, Pencil, Folder, Search
+  Plus, Trash2, ExternalLink, ChevronLeft, CheckCircle2, Circle,
+  CalendarDays, Clock, X, Pencil, Folder, Search, CheckSquare,
+  Square, Flame, Check, Sparkles, FolderPlus, ArrowLeft
 } from 'lucide-react';
 
 // Lazy load modals
 const ActivityModal = lazy(() => import('../components/ActivityModal'));
 
 const priorityConfig = {
-  high: { label: 'High', dot: 'bg-red-500', text: 'text-red-500', ring: 'border-red-500/40', bg: 'bg-red-500/8' },
-  mid: { label: 'Mid', dot: 'bg-yellow-500', text: 'text-yellow-500', ring: 'border-yellow-500/40', bg: 'bg-yellow-500/8' },
-  low: { label: 'Low', dot: 'bg-green-500', text: 'text-green-500', ring: 'border-green-500/40', bg: 'bg-green-500/8' },
+  high: { label: 'High', dot: 'bg-red-500', text: 'text-red-500', bg: 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/40' },
+  mid: { label: 'Mid', dot: 'bg-amber-500', text: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/40' },
+  low: { label: 'Low', dot: 'bg-emerald-500', text: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/40' },
 };
 
 const TABS = [
@@ -24,17 +25,8 @@ const TABS = [
   { key: 'high', label: '🔥 Priority' },
 ];
 
-const TaskIcon = ({ size = 16, className = "" }) => (
-  <img
-    src="/task.svg"
-    alt="Task"
-    style={{ width: size, height: size }}
-    className={`invert brightness-0 invert-[1] ${className}`}
-  />
-);
-
 export default function TasksPage() {
-  const { activities, loading, addActivity, updateActivity, toggleTask, deleteTask, purgeCompleted } = useTasks();
+  const { activities, addActivity, updateActivity, toggleTask, deleteTask } = useTasks();
   const [activeTab, setActiveTab] = useState('all');
   const [taskSearch, setTaskSearch] = useState('');
   const [currentFolder, setCurrentFolder] = useState(null);
@@ -98,200 +90,232 @@ export default function TasksPage() {
     setIsModalOpen(true);
   };
 
-  const card = { backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '18px', boxShadow: 'var(--shadow-card)' };
-
   return (
-    <div className="max-w-[1200px] mx-auto animate-fade-in p-2 sm:p-4">
-      <div style={{ ...card, padding: '24px', minHeight: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column' }}>
-        
-        {/* Header */}
-        <div className="flex justify-between items-center mb-5 pb-4 border-b border-[var(--border)]">
+    <div className="space-y-6 pb-12 animate-fade-in max-w-[1440px] mx-auto">
+      {/* ── TOP HEADER & STATS ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Stat Card 1: Total Active */}
+        <div className="bento-card p-6 flex items-center justify-between bg-white dark:bg-[#121620]">
           <div>
-            <div className="flex items-center gap-2">
-              {currentFolder && (
-                 <button 
-                   onClick={() => setCurrentFolder(null)}
-                   className="p-1.5 hover:bg-white/5 rounded-lg text-blue-500 transition-colors"
-                 >
-                   <ChevronLeft size={18} />
-                 </button>
-              )}
-              <h1 style={{ color: 'var(--text-main)', fontWeight: 800, fontSize: '24px', letterSpacing: '-0.5px' }}>
-                {currentFolder ? currentFolder.title : 'Missions & Tasks'}
-              </h1>
-            </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
-              {currentFolder ? 'Folder Content' : `${stats.completed} of ${stats.total} objectives completed`}
-            </p>
+            <span className="text-xs font-semibold text-slate-400 block mb-1">
+              Active Missions
+            </span>
+            <span className="text-3xl font-bold text-slate-900 dark:text-white font-sans">
+              {stats.total - stats.completed}
+            </span>
           </div>
-          <button 
-            onClick={() => { setEditTarget(null); setIsModalOpen(true); }} 
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/30 transition-all"
+          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-xl">
+            🎯
+          </div>
+        </div>
+
+        {/* Stat Card 2: Completion Rate */}
+        <div className="bento-card p-6 flex flex-col justify-between bg-white dark:bg-[#121620]">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs font-semibold text-slate-400">
+              Completion Rate
+            </span>
+            <span className="text-xs font-bold text-emerald-500 font-mono">
+              {stats.completed}/{stats.total} ({stats.rate}%)
+            </span>
+          </div>
+          <div className="h-4 rounded-xl bg-slate-100 dark:bg-slate-800 p-0.5 overflow-hidden">
+            <div
+              style={{ width: `${stats.rate}%` }}
+              className="h-full rounded-lg striped-emerald transition-all duration-500"
+            />
+          </div>
+        </div>
+
+        {/* Stat Card 3: Quick New Mission */}
+        <div className="bento-card p-6 flex items-center justify-between bg-gradient-to-tr from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25">
+          <div>
+            <h3 className="font-bold text-base">Create Mission</h3>
+            <p className="text-xs text-blue-100">Add a new task, event, or folder</p>
+          </div>
+          <button
+            onClick={() => { setEditTarget(null); setIsModalOpen(true); }}
+            className="w-11 h-11 rounded-2xl bg-white text-blue-600 flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-all"
+            aria-label="Add Mission"
           >
-            Create Mission
+            <Plus size={20} />
           </button>
         </div>
-
-        {/* Task Search Bar */}
-        <div className="relative mb-5 flex-shrink-0">
-          <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-[var(--text-muted)]">
-            <Search size={18} />
-          </div>
-          <input
-            type="text"
-            placeholder="Search tasks, events, or folders..."
-            value={taskSearch}
-            onChange={(e) => setTaskSearch(e.target.value)}
-            className="w-full pl-11 pr-10 py-3 rounded-xl bg-[var(--bg-deep)] text-[var(--text-main)] placeholder-[var(--text-faint)] border border-[var(--border-soft)] focus:outline-none focus:border-blue-500/50 text-sm transition-all"
-          />
-          {taskSearch && (
-            <button 
-              onClick={() => setTaskSearch('')}
-              className="absolute inset-y-0 right-3.5 flex items-center text-[var(--text-faint)] hover:text-[var(--text-muted)]"
-            >
-              <X size={18} />
-            </button>
-          )}
-        </div>
-
-        {/* Filter Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
-          {TABS.map(tab => (
-            <button 
-              key={tab.key} 
-              onClick={() => setActiveTab(tab.key)} 
-              className="whitespace-nowrap px-4 py-2 rounded-xl text-xs font-semibold transition-all border"
-              style={activeTab === tab.key 
-                ? { background: 'rgba(59,130,246,0.15)', color: '#3b82f6', borderColor: 'rgba(59,130,246,0.3)' } 
-                : { color: 'var(--text-muted)', borderColor: 'transparent' }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* List View */}
-        <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-60 gap-3">
-              <div className="w-9 h-9 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
-              <span className="text-xs text-[var(--text-muted)]">Loading Missions...</span>
-            </div>
-          ) : filteredQueue.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-[var(--border-soft)] rounded-2xl opacity-60">
-              <div className="text-4xl mb-3">🎯</div>
-              <p className="text-sm font-bold text-[var(--text-main)]">No objectives found</p>
-              <p className="text-xs text-[var(--text-muted)] mt-1">Ready to take on something new?</p>
-            </div>
-          ) : (
-            filteredQueue.map(item => {
-              const p = item.type === 'task' ? (priorityConfig[item.priority] || priorityConfig.mid) : null;
-              return (
-                <div 
-                  key={item.id} 
-                  className={`flex items-start gap-3 p-4 rounded-2xl bg-[var(--bg-deep)] border border-[var(--border-soft)] group transition-all ${item.type === 'folder' ? 'cursor-pointer hover:border-amber-500/30' : ''}`}
-                  style={{ opacity: item.isCompleted ? 0.65 : 1 }}
-                  onClick={() => {
-                    if (item.type === 'folder') setCurrentFolder(item);
-                  }}
-                >
-                  {item.type !== 'folder' && (
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); toggleTask(item.id, item.isCompleted); }} 
-                      className="mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all bg-transparent flex-shrink-0"
-                      style={{ borderColor: item.isCompleted ? '#22c55e' : (p?.dot === 'bg-red-500' ? '#ef4444' : 'var(--border)') }}
-                    >
-                      {item.isCompleted && <CheckCircle2 size={16} className="text-green-500" />}
-                    </button>
-                  )}
-                  <div className="flex-1 min-w-0 flex items-start gap-3">
-                    {/* Icon */}
-                    <div className={`p-2.5 rounded-xl flex-shrink-0 ${item.type === 'event' ? 'bg-indigo-500/10 text-indigo-500' : item.type === 'folder' ? 'bg-amber-500/10 text-amber-500' : 'bg-blue-500/10 text-blue-500'}`}>
-                      {item.type === 'event' ? <CalendarDays size={16} /> : item.type === 'folder' ? <Folder size={16} /> : <TaskIcon size={16} className="opacity-90" />}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className={`text-sm font-bold break-words leading-tight ${item.isCompleted ? 'line-through opacity-50' : 'text-[var(--text-main)]'}`}>
-                          {item.title}
-                        </p>
-                        {item.type === 'task' && !item.isCompleted && p && (
-                          <span className="flex-shrink-0 flex items-center px-2.5 py-0.5 rounded-lg text-[9px] font-extrabold uppercase tracking-wider"
-                            style={{ background: item.priority === 'high' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)', color: item.priority === 'high' ? '#ef4444' : '#22c55e' }}>
-                            {p.label}
-                          </span>
-                        )}
-                      </div>
-
-                      {item.type === 'folder' && (
-                        <p className="text-[10px] font-bold text-amber-500/60 uppercase tracking-wider">
-                          {(() => {
-                            const count = (activities || []).filter(a => a.folderId === item.id).length;
-                            return count === 0 ? 'Empty Folder' : `${count} ${count === 1 ? 'Item' : 'Items'} Inside`;
-                          })()}
-                        </p>
-                      )}
-
-                      {item.detail && <p className="text-xs text-[var(--text-muted)] break-words leading-relaxed">{item.detail}</p>}
-                      {item.location && <p className="text-[10px] font-bold text-blue-500 flex items-center gap-1"><ExternalLink size={11} /> {item.location}</p>}
-
-                      {/* Deadline badges */}
-                      {!item.isCompleted && (item.deadlineDate || item.deadlineTime || item.date || item.time) && (
-                        <div className="flex flex-wrap gap-2 pt-1">
-                          {(item.deadlineDate || item.date) && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
-                              <CalendarDays size={11} /> {item.deadlineDate || item.date}
-                            </span>
-                          )}
-                          {(item.deadlineTime || item.time) && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-400 flex items-center gap-1">
-                              <Clock size={11} /> {item.deadlineTime || item.time}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-1 sm:opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 self-center">
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); openEditModal(item); }} 
-                      className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-xl transition-all"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); deleteTask(item.id); }} 
-                      className="p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        {stats.completed > 0 && (
-          <button 
-            onClick={purgeCompleted} 
-            className="mt-4 w-full py-3 rounded-xl text-xs font-bold border border-[var(--border)] text-[var(--text-muted)] hover:bg-red-500/5 hover:text-red-500 hover:border-red-500/30 transition-all flex-shrink-0"
-          >
-            Purge {stats.completed} Completed Missions
-          </button>
-        )}
-
       </div>
 
-      {/* Modals */}
+      {/* ── FILTER TABS & SEARCH BAR ── */}
+      <div className="bento-card p-4 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-[#121620]">
+        {/* Navigation Breadcrumb / Folder Back Button */}
+        {currentFolder ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentFolder(null)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-all"
+            >
+              <ArrowLeft size={14} />
+              <span>Back</span>
+            </button>
+            <span className="text-xs font-bold text-slate-400">/</span>
+            <span className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+              <Folder size={14} className="text-blue-500" />
+              {currentFolder.title}
+            </span>
+          </div>
+        ) : (
+          /* Filter Tabs */
+          <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 scrollbar-hide">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                  activeTab === tab.key
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Search Input */}
+        <div className="relative w-full sm:w-64">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search missions..."
+            value={taskSearch}
+            onChange={(e) => setTaskSearch(e.target.value)}
+            className="w-full h-10 pl-9 pr-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          />
+        </div>
+      </div>
+
+      {/* ── MISSIONS LIST (BENTO CARDS) ── */}
+      <div className="space-y-3">
+        {filteredQueue.length === 0 ? (
+          <div className="bento-card p-12 text-center bg-white dark:bg-[#121620]">
+            <span className="text-4xl block mb-2">🎉</span>
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
+              No missions found
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">
+              All caught up! Create a new mission to get started.
+            </p>
+            <button
+              onClick={() => { setEditTarget(null); setIsModalOpen(true); }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-blue-600 text-white text-xs font-bold shadow-md shadow-blue-500/20"
+            >
+              <Plus size={14} />
+              <span>Create Mission</span>
+            </button>
+          </div>
+        ) : (
+          filteredQueue.map((item) => {
+            const isFolder = item.type === 'folder';
+            const pConf = priorityConfig[item.priority] || priorityConfig.low;
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => isFolder && setCurrentFolder(item)}
+                className={`bento-card p-4 sm:p-5 flex items-center justify-between gap-4 bg-white dark:bg-[#121620] group cursor-pointer transition-all ${
+                  item.isCompleted ? 'opacity-70' : ''
+                }`}
+              >
+                {/* Left: Checkbox + Title + Meta */}
+                <div className="flex items-center gap-3.5 min-w-0">
+                  {/* Task Checkbox */}
+                  {!isFolder ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleTask(item.id); }}
+                      className="shrink-0 transition-transform active:scale-90"
+                    >
+                      {item.isCompleted ? (
+                        <CheckCircle2 size={22} className="text-emerald-500 fill-emerald-500/20" />
+                      ) : (
+                        <Circle size={22} className="text-slate-300 dark:text-slate-600 hover:text-blue-500" />
+                      )}
+                    </button>
+                  ) : (
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                      <Folder size={18} />
+                    </div>
+                  )}
+
+                  {/* Title & Info */}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4
+                        className={`text-sm font-bold truncate text-slate-800 dark:text-slate-100 ${
+                          item.isCompleted ? 'line-through text-slate-400 dark:text-slate-500' : ''
+                        }`}
+                      >
+                        {item.title}
+                      </h4>
+
+                      {/* Priority Tag */}
+                      {item.priority && item.priority !== 'low' && !item.isCompleted && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${pConf.bg} ${pConf.text}`}>
+                          {pConf.label}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Sub-label details */}
+                    <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-400">
+                      {(item.date || item.deadlineDate) && (
+                        <span className="flex items-center gap-1">
+                          <CalendarDays size={12} />
+                          {item.date || item.deadlineDate}
+                        </span>
+                      )}
+                      {(item.time || item.deadlineTime) && (
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} />
+                          {item.time || item.deadlineTime}
+                        </span>
+                      )}
+                      {item.detail && (
+                        <span className="truncate max-w-[200px] hidden md:inline">
+                          {item.detail}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Actions */}
+                <div className="flex items-center gap-1.5 shrink-0 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openEditModal(item); }}
+                    className="w-11 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors"
+                    aria-label={`Edit ${item.title}`}
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteTask(item.id); }}
+                    className="w-11 h-11 rounded-xl bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-500 flex items-center justify-center transition-colors"
+                    aria-label={`Delete ${item.title}`}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* ── MODAL ── */}
       <Suspense fallback={null}>
         {isModalOpen && (
           <ActivityModal
             isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
+            onClose={() => { setIsModalOpen(false); setEditTarget(null); }}
             onSave={handleSaveActivity}
             activity={editTarget}
           />

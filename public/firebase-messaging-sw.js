@@ -20,7 +20,7 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: '/favicon.svg',
+    icon: '/nexus_logo.png',
     tag: payload.data?.id || 'nexus-push',
     data: payload.data
   };

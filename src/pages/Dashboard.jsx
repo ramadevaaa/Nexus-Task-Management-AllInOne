@@ -1,55 +1,31 @@
 import { useState, useMemo, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { useTasks } from '../hooks/useTasks';
 import { useTimer } from '../hooks/useTimer';
 import {
   Plus, Trash2, ExternalLink, ChevronLeft, ChevronRight,
-  CheckCircle2, Circle, Flame, Clock, Coffee, BarChart3,
+  CheckCircle2, Circle, Clock, BarChart3,
   Link2, CalendarDays, RotateCcw, Play, Pause, X, Pencil,
-  StickyNote, Lightbulb, Library, Image as ImageIcon, Search, Folder
+  StickyNote, Lightbulb, Library, Search, Folder,
+  ArrowRight, ArrowLeft, Volume2, CornerDownLeft
 } from 'lucide-react';
+import NexusAIWidget from '../components/NexusAIWidget';
 
-// Lazy load heavy components
+// Lazy loaded modals & Spotify
 const SpotifyPlayer = lazy(() => import('../components/SpotifyPlayer'));
 const ActivityModal = lazy(() => import('../components/ActivityModal'));
 const AddHubModal = lazy(() => import('../components/AddHubModal'));
 const VaultModal = lazy(() => import('../components/VaultModal'));
-import NexusAIWidget from '../components/NexusAIWidget';
 
-const TaskIcon = ({ size = 16, className = "" }) => (
-  <img
-    src="/task.svg"
-    alt="Task"
-    style={{ width: size, height: size }}
-    className={`invert brightness-0 invert-[1] ${className}`}
-  />
-);
-
-/* ─── tiny helpers ─── */
-const greeting = () => {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-};
-
+/* ─── Priority Config ─── */
 const priorityConfig = {
-  high: { label: 'High', dot: 'bg-red-500', text: 'text-red-500', ring: 'border-red-500/40', bg: 'bg-red-500/8' },
-  mid: { label: 'Mid', dot: 'bg-yellow-500', text: 'text-yellow-500', ring: 'border-yellow-500/40', bg: 'bg-yellow-500/8' },
-  low: { label: 'Low', dot: 'bg-green-500', text: 'text-green-500', ring: 'border-green-500/40', bg: 'bg-green-500/8' },
+  high: { label: 'High', dot: 'bg-red-500', text: 'text-red-500', bg: 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/40' },
+  mid: { label: 'Mid', dot: 'bg-amber-500', text: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/40' },
+  low: { label: 'Low', dot: 'bg-emerald-500', text: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/40' },
 };
-
-const TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'task', label: 'Tasks' },
-  { key: 'event', label: 'Events' },
-  { key: 'folder', label: 'Folders' },
-  { key: 'active', label: 'Active' },
-  { key: 'done', label: 'Done' },
-  { key: 'high', label: '🔥 Priority' },
-];
 
 const VAULT_TABS = [
   { key: 'all', label: 'All' },
@@ -60,10 +36,46 @@ const VAULT_TABS = [
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/* ─── Link Detection Helper ─── */
+/* ─── Natural Human Date Helper ─── */
+const formatNaturalDate = (dateStr, timeStr) => {
+  if (!dateStr) return timeStr ? { label: timeStr, isOverdue: false, isToday: false } : null;
+  
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const target = new Date(y, m - 1, d);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+
+  const diffTime = target.getTime() - today.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+  let dayLabel = '';
+  let isOverdue = false;
+  let isToday = false;
+
+  if (diffDays < 0) {
+    dayLabel = `${Math.abs(diffDays)}d ago (overdue)`;
+    isOverdue = true;
+  } else if (diffDays === 0) {
+    dayLabel = 'Today';
+    isToday = true;
+  } else if (diffDays === 1) {
+    dayLabel = 'Tomorrow';
+  } else if (diffDays < 7) {
+    dayLabel = target.toLocaleDateString('en-US', { weekday: 'short' });
+  } else {
+    dayLabel = target.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  return {
+    label: timeStr ? `${dayLabel} at ${timeStr}` : dayLabel,
+    isOverdue,
+    isToday,
+  };
+};
+
 const renderTextWithLinks = (text) => {
   if (!text) return null;
-  // Simple regex to catch common http/https links
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const parts = text.split(urlRegex);
 
@@ -75,7 +87,7 @@ const renderTextWithLinks = (text) => {
           href={part}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-blue-400 hover:text-blue-300 underline underline-offset-2 break-all decoration-blue-500/30"
+          className="text-blue-500 hover:text-blue-600 underline underline-offset-2 break-all"
           onClick={(e) => e.stopPropagation()}
         >
           {part}
@@ -86,100 +98,98 @@ const renderTextWithLinks = (text) => {
   });
 };
 
-/* ─── VaultCard Component for Expandable Text ─── */
-const VaultCard = ({ item, openEditModal, deleteTask }) => {
+/* ─── Vault Card Component ─── */
+const BentoVaultCard = ({ item, openEditModal, deleteTask }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
-  const textRef = useRef(null);
-  const [isTruncated, setIsTruncated] = useState(false);
-
-  useEffect(() => {
-    if (textRef.current) {
-      const check = () => {
-        if (textRef.current) {
-          setIsTruncated(textRef.current.scrollHeight > textRef.current.clientHeight);
-        }
-      };
-      check();
-      window.addEventListener('resize', check);
-      return () => window.removeEventListener('resize', check);
-    }
-  }, [item.content]);
+  const isYellow = item.vaultType === 'note' || !item.vaultType;
 
   return (
-    <div className="group relative bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-2xl overflow-hidden hover:border-indigo-500/30 transition-all h-fit">
-
+    <div
+      className={`p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl transition-all duration-200 group relative flex flex-col justify-between ${
+        isYellow ? 'bento-card-yellow' : 'bento-card bg-white dark:bg-[#121620]'
+      }`}
+    >
       {/* Actions Overlay */}
-      <div className="absolute top-3 right-3 flex gap-2 z-20 opacity-0 group-hover:opacity-100 transition-all duration-300">
+      <div className="absolute top-2.5 right-2.5 sm:top-3.5 sm:right-3.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
         <button
           onClick={(e) => { e.stopPropagation(); openEditModal(item); }}
-          className="p-2 bg-white/10 backdrop-blur-md border border-white/20 text-blue-400 hover:bg-blue-400 hover:text-white rounded-xl transition-all shadow-lg"
+          className="p-1.5 rounded-lg bg-black/10 hover:bg-black/20 text-slate-800 dark:text-slate-200 transition-colors backdrop-blur-sm"
+          title="Edit Note"
         >
-          <Pencil size={14} />
+          <Pencil size={11} />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); deleteTask(item.id); }}
-          className="p-2 bg-white/10 backdrop-blur-md border border-white/20 text-red-400 hover:bg-red-400 hover:text-white rounded-xl transition-all shadow-lg"
+          className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors backdrop-blur-sm"
+          title="Delete Note"
         >
-          <Trash2 size={14} />
+          <Trash2 size={11} />
         </button>
       </div>
 
-      {item.imageUrl && (
-        <div className="h-40 overflow-hidden cursor-zoom-in" onClick={() => setIsZoomed(true)}>
-          <img src={item.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-          <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-all" />
-        </div>
-      )}
-
-      <div className="p-4">
-        <div className="flex justify-between items-start gap-2 mb-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl flex-shrink-0">
-              {item.vaultType === 'idea' ? <Lightbulb size={16} /> : item.vaultType === 'learning' ? <Library size={16} /> : <StickyNote size={16} />}
-            </span>
-            <h4 className="font-bold text-sm break-all text-[var(--text-main)] leading-tight flex-1">{item.title}</h4>
+      <div>
+        <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-black/10 flex items-center justify-center shrink-0">
+            {item.vaultType === 'idea' ? <Lightbulb size={11} /> : item.vaultType === 'learning' ? <Library size={11} /> : <StickyNote size={11} />}
           </div>
+          <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider opacity-70 truncate">
+            {item.vaultType || 'Note'}
+          </span>
         </div>
 
-        <div className="relative">
-          <p
-            ref={textRef}
-            className={`text-xs text-[var(--text-muted)] leading-relaxed whitespace-pre-wrap transition-all duration-300 ${isExpanded ? '' : 'line-clamp-3'}`}
+        <h4 className="font-bold text-xs sm:text-sm mb-1 leading-tight line-clamp-1">{item.title}</h4>
+
+        {item.audioUrl && (
+          <div className="my-1.5 p-1.5 rounded-xl bg-black/10 border border-black/10 flex items-center gap-1.5">
+            <Volume2 size={12} className="text-[#483707] dark:text-amber-400 shrink-0" />
+            <audio controls src={item.audioUrl} className="h-6 w-full rounded-md" />
+          </div>
+        )}
+
+        {item.imageUrl && (
+          <div
+            className="h-20 sm:h-24 rounded-xl sm:rounded-2xl overflow-hidden mb-2 cursor-zoom-in relative"
+            onClick={() => setIsZoomed(true)}
           >
+            <img src={item.imageUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          </div>
+        )}
+
+        <div className="text-[11px] sm:text-xs leading-relaxed opacity-90 whitespace-pre-wrap font-medium">
+          <p className={isExpanded ? '' : 'line-clamp-2 sm:line-clamp-3'}>
             {renderTextWithLinks(item.content)}
           </p>
-          {(isTruncated || isExpanded) && (
+          {item.content && item.content.length > 70 && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="mt-2.5 px-3 py-1 bg-indigo-500/5 hover:bg-indigo-500/10 rounded-lg text-[10px] font-bold text-indigo-400 transition-all border border-indigo-500/10"
+              className="mt-1 text-[9px] sm:text-[10px] font-bold underline opacity-80 hover:opacity-100"
             >
-              {isExpanded ? 'Show Less ↑' : 'Read More ↓'}
+              {isExpanded ? 'Less' : 'More'}
             </button>
           )}
         </div>
-
-        {item.url && (
-          <a href={item.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 bg-slate-800/50 rounded-lg text-[10px] font-bold text-indigo-400 hover:bg-slate-800 transition-all border border-slate-700/50">
-            Open Resource <ExternalLink size={10} />
-          </a>
-        )}
       </div>
 
-      {/* Full Screen Zoom Overlay */}
+      {item.url && (
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 mt-2 px-2.5 py-0.5 rounded-lg bg-black/5 hover:bg-black/10 text-[9px] sm:text-[10px] font-bold transition-all w-fit"
+        >
+          <span className="truncate max-w-[90px]">Link</span>
+          <ExternalLink size={9} />
+        </a>
+      )}
+
       {isZoomed && (
         <div
-          className="fixed inset-0 z-[1200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 lg:p-12 animate-fade-in cursor-zoom-out"
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
           onClick={() => setIsZoomed(false)}
         >
-          <img
-            src={item.imageUrl}
-            alt="Full Preview"
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-scale-up"
-          />
-          <button className="absolute top-10 right-10 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-all">
-            <X size={24} />
-          </button>
+          <img src={item.imageUrl} alt="Full Preview" className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl" />
+          <button className="absolute top-6 right-6 p-3 rounded-full bg-white/20 text-white"><X size={20} /></button>
         </div>
       )}
     </div>
@@ -187,67 +197,107 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
 };
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const { operatorName } = useSettings();
-  const { activities, loading, addActivity, updateActivity, toggleTask, deleteTask, purgeCompleted, addPortal } = useTasks();
+  const { operatorName, focusDuration, setFocusDuration } = useSettings();
+  const { activities, loading, addActivity, updateActivity, toggleTask, deleteTask, purgeCompleted } = useTasks();
 
   const [activeTab, setActiveTab] = useState('all');
   const [vaultActiveTab, setVaultActiveTab] = useState('all');
+  const [taskSearch, setTaskSearch] = useState('');
+  const [vaultSearch, setVaultSearch] = useState('');
+  const [quickInput, setQuickInput] = useState('');
+  const [currentFolder, setCurrentFolder] = useState(null);
+  const [selectedCalendarFilter, setSelectedCalendarFilter] = useState(null);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHubModalOpen, setIsHubModalOpen] = useState(false);
   const [isVaultModalOpen, setIsVaultModalOpen] = useState(false);
-  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [portalEditTarget, setPortalEditTarget] = useState(null);
   const [isGithubDismissed, setIsGithubDismissed] = useState(() => localStorage.getItem('nexus_dismiss_github') === 'true');
-  const [vaultSearch, setVaultSearch] = useState('');
-  const [taskSearch, setTaskSearch] = useState('');
-  const [currentFolder, setCurrentFolder] = useState(null);
-  const spotifyRef = useRef(null);
 
-  // Mini Calendar
+  // Mini Calendar Date
   const [calDate, setCalDate] = useState(new Date());
   const today = new Date();
   const calDaysInMonth = new Date(calDate.getFullYear(), calDate.getMonth() + 1, 0).getDate();
   const calFirstDay = new Date(calDate.getFullYear(), calDate.getMonth(), 1).getDay();
 
-  // Listen to FAB event from RootLayout
-  const openModal = useCallback(() => {
-    setEditTarget(null);
-    setIsModalOpen(true);
-  }, []);
+  const spotifyRef = useRef(null);
 
-  useEffect(() => {
-    window.addEventListener('nexus:open-create', openModal);
-    return () => window.removeEventListener('nexus:open-create', openModal);
-  }, [openModal]);
-
+  // Timer complete hook
   const handleTimerComplete = () => {
     spotifyRef.current?.pause();
     window.dispatchEvent(new CustomEvent('nexus:trigger-alarm', {
       detail: {
         id: 'pomo-' + Date.now(),
-        title: timerMode === 'focus' ? 'Focus Session Complete!' : 'Break Time Over!',
+        title: 'Focus Session Complete!',
         type: 'pomodoro',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
     }));
   };
 
-  const { mode: timerMode, switchMode, isActive, toggleTimer, resetTimer, formatTime, progressPct } =
-    useTimer(handleTimerComplete);
+  const timer = useTimer(handleTimerComplete);
+  const { mode: timerMode, switchMode, isActive: isTimerActive, toggleTimer, resetTimer, formatTime, progressPct } = timer;
 
+  const openCreateModal = useCallback(() => {
+    setEditTarget(null);
+    setIsModalOpen(true);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('nexus:open-create', openCreateModal);
+    return () => window.removeEventListener('nexus:open-create', openCreateModal);
+  }, [openCreateModal]);
+
+  /* ── Filtered Tasks & Folders ── */
   const queueItems = useMemo(() => {
     const allQueue = (activities || []).filter(a => a.type === 'task' || a.type === 'event' || a.type === 'folder');
-    
     if (currentFolder) {
-      // Inside a folder: show only items belonging to this folder
       return allQueue.filter(a => a.folderId === currentFolder.id);
     } else {
-      // Root level: show folders and tasks that ARE NOT inside any folder
       return allQueue.filter(a => a.type === 'folder' || !a.folderId);
     }
   }, [activities, currentFolder]);
+
+  // Tab counts for badges
+  const tabCounts = useMemo(() => {
+    return {
+      all: queueItems.length,
+      task: queueItems.filter(t => t.type === 'task').length,
+      event: queueItems.filter(t => t.type === 'event').length,
+      folder: queueItems.filter(t => t.type === 'folder').length,
+      active: queueItems.filter(t => !t.isCompleted).length,
+      done: queueItems.filter(t => t.isCompleted).length,
+      high: queueItems.filter(t => t.priority === 'high' && !t.isCompleted).length,
+    };
+  }, [queueItems]);
+
+  const filteredQueue = useMemo(() => {
+    let items = [];
+    switch (activeTab) {
+      case 'active': items = queueItems.filter(t => !t.isCompleted); break;
+      case 'done': items = queueItems.filter(t => t.isCompleted); break;
+      case 'high': items = queueItems.filter(t => t.priority === 'high' && !t.isCompleted); break;
+      case 'task': items = queueItems.filter(t => t.type === 'task'); break;
+      case 'event': items = queueItems.filter(t => t.type === 'event'); break;
+      case 'folder': items = queueItems.filter(t => t.type === 'folder'); break;
+      default: items = queueItems;
+    }
+
+    if (selectedCalendarFilter) {
+      items = items.filter(t => (t.date === selectedCalendarFilter || t.deadlineDate === selectedCalendarFilter));
+    }
+
+    if (!taskSearch) return items;
+    return items.filter(t =>
+      t.title?.toLowerCase().includes(taskSearch.toLowerCase()) ||
+      t.detail?.toLowerCase().includes(taskSearch.toLowerCase())
+    );
+  }, [queueItems, activeTab, taskSearch, selectedCalendarFilter]);
+
+  /* ── Portals ── */
   const portals = useMemo(() => {
     const list = (activities || []).filter(a => a.type === 'portal');
     const hasGithub = list.some(p => p.title?.toLowerCase() === 'github');
@@ -257,69 +307,72 @@ export default function Dashboard() {
         id: 'default_github',
         title: 'Github',
         url: 'https://github.com',
-        icon: '/github.svg',
-        type: 'portal',
-        isDefault: true
+        icon: '🚀',
+        isDefault: true,
       }, ...list];
     }
     return list;
   }, [activities, isGithubDismissed]);
-  const vaultItems = useMemo(() =>
-    (activities || []).filter(a => a.type === 'vault'),
-    [activities]
-  );
 
-  const dashboardVault = useMemo(() => {
-    return [...vaultItems].reverse().slice(0, 4);
-  }, [vaultItems]);
-
-  const upcomingMissions = useMemo(() => {
-    return (activities || [])
-      .filter(m => !m.isCompleted && (m.type === 'task' || m.type === 'event'))
-      .sort((a, b) => {
-        const dateA = a.deadlineDate || a.date || '2099-12-31';
-        const dateB = b.deadlineDate || b.date || '2099-12-31';
-        if (dateA !== dateB) return dateA.localeCompare(dateB);
-        const timeA = a.deadlineTime || a.time || '23:59';
-        const timeB = b.deadlineTime || b.time || '23:59';
-        return timeA.localeCompare(timeB);
-      })
-      .slice(0, 5);
+  /* ── Vault Notes ── */
+  const vaultItems = useMemo(() => {
+    return (activities || []).filter(a => a.type === 'vault');
   }, [activities]);
 
+  const filteredVault = useMemo(() => {
+    let list = vaultItems;
+    if (vaultActiveTab !== 'all') {
+      list = list.filter(v => v.vaultType === vaultActiveTab);
+    }
+    if (vaultSearch) {
+      list = list.filter(v =>
+        v.title?.toLowerCase().includes(vaultSearch.toLowerCase()) ||
+        v.content?.toLowerCase().includes(vaultSearch.toLowerCase())
+      );
+    }
+    return list;
+  }, [vaultItems, vaultActiveTab, vaultSearch]);
+
+  /* ── Live Stats ── */
   const stats = useMemo(() => {
-    const missions = queueItems.filter(a => a.type === 'task' || a.type === 'event');
+    const missions = (activities || []).filter(a => a.type === 'task' || a.type === 'event');
     const total = missions.length;
     const completed = missions.filter(t => t.isCompleted).length;
+    const pendingTasks = (activities || []).filter(a => a.type === 'task' && !a.isCompleted).length;
+    const eventsCount = (activities || []).filter(a => a.type === 'event').length;
+    const rate = total === 0 ? 0 : Math.round((completed / total) * 100);
 
-    // Breakdown
-    const tasks = missions.filter(m => m.type === 'task');
-    const events = missions.filter(m => m.type === 'event');
-    const pendingTasks = tasks.filter(t => !t.isCompleted).length;
-    const completedTasks = tasks.filter(t => t.isCompleted).length;
+    return { total, completed, pendingTasks, eventsCount, rate };
+  }, [activities]);
 
-    return {
-      total,
-      completed,
-      pending: total - completed,
-      rate: total === 0 ? 0 : Math.round((completed / total) * 100),
-      tasksCount: tasks.length,
-      eventsCount: events.length,
-      pendingTasks,
-      completedTasks
+  const now = new Date();
+  const dayProgressPct = Math.round(((now.getHours() * 60 + now.getMinutes()) / (24 * 60)) * 100);
+
+  /* ── Quick Inline Add Task ── */
+  const handleQuickAdd = async (e) => {
+    e.preventDefault();
+    if (!quickInput.trim()) return;
+
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const newTask = {
+      type: 'task',
+      title: quickInput.trim(),
+      priority: 'mid',
+      deadlineDate: todayStr,
+      deadlineTime: '23:59',
+      folderId: currentFolder ? currentFolder.id : null,
+      isCompleted: false,
     };
-  }, [queueItems]);
 
+    await addActivity(newTask);
+    setQuickInput('');
+  };
 
-
-  const dayPct = Math.round((today.getHours() / 24) * 100);
-  const displayName = operatorName || currentUser?.displayName || 'there';
-
+  /* ── Save handlers ── */
   const handleSaveActivity = async (data, id) => {
     if (id) {
       await updateActivity(id, data);
     } else {
-      // If we are inside a folder, attach the folderId to the new activity
       if (currentFolder) {
         data.folderId = currentFolder.id;
       }
@@ -328,486 +381,823 @@ export default function Dashboard() {
   };
 
   const handleSavePortal = async (data, id) => {
-    if (id === 'default_github') {
-      // Promoting default to real entry
-      await addPortal(data);
-      localStorage.setItem('nexus_dismiss_github', 'true');
-      setIsGithubDismissed(true);
-    } else if (id) {
+    data.type = 'portal';
+    if (id) {
       await updateActivity(id, data);
     } else {
-      await addPortal(data);
+      await addActivity(data);
     }
   };
 
-  const handleDeletePortal = async (id) => {
+  const handleDeletePortal = (id) => {
     if (id === 'default_github') {
-      localStorage.setItem('nexus_dismiss_github', 'true');
       setIsGithubDismissed(true);
+      localStorage.setItem('nexus_dismiss_github', 'true');
     } else {
-      await deleteTask(id);
+      deleteTask(id);
     }
   };
 
-  const openEditModal = (item) => {
-    setEditTarget(item);
-    if (item.type === 'vault') {
-      setIsVaultModalOpen(true);
-    } else if (item.type === 'portal') {
-      setPortalEditTarget(item);
-      setIsHubModalOpen(true);
-    } else {
-      setIsModalOpen(true);
-    }
-  };
+  const timerDisplay = typeof formatTime === 'function' ? formatTime() : (formatTime || '25:00');
+  const focusPresets = [15, 25, 45, 60];
 
-  const card = { backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '18px', boxShadow: 'var(--shadow-card)' };
-  const cardDeep = { backgroundColor: 'var(--bg-deep)', border: '1px solid var(--border-soft)', borderRadius: '12px' };
+  const TABS_WITH_COUNTS = [
+    { key: 'all', label: 'All', count: tabCounts.all },
+    { key: 'task', label: 'Tasks', count: tabCounts.task },
+    { key: 'event', label: 'Events', count: tabCounts.event },
+    { key: 'folder', label: 'Folders', count: tabCounts.folder },
+    { key: 'active', label: 'Active', count: tabCounts.active },
+    { key: 'done', label: 'Done', count: tabCounts.done },
+    { key: 'high', label: '🔥 Priority', count: tabCounts.high },
+  ];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pb-28 lg:pb-4 animate-fade-in">
-
-      {/* ════════════════ LEFT COL ════════════════ */}
-      <section className="lg:col-span-3 space-y-4">
-
-        {/* ── Greeting Hero Card (Restored Blue) ── */}
-        <div style={{
-          background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-          borderRadius: '18px',
-          boxShadow: '0 8px 32px rgba(59,130,246,0.35)',
-          padding: '24px',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>{greeting()},</p>
-          <h2 className="truncate" style={{ color: '#fff', fontSize: '26px', fontWeight: 800, lineHeight: 1.2, marginBottom: '4px' }}>{displayName} 👋</h2>
-          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', marginBottom: '16px' }}>What's on the menu today?</p>
-
-          {/* ── TODAY'S OUTLOOK (Inline) ── */}
-          <div className="flex flex-col gap-2 mb-6">
-            {upcomingMissions.length > 0 ? (
-              upcomingMissions.map((m, i) => (
-                <div key={m.id} className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-3 py-2 rounded-xl border border-white/10 w-full animate-fade-in shadow-sm" style={{ animationDelay: `${i * 0.1}s` }}>
-                  <div className={`p-1.5 rounded-lg flex-shrink-0 ${m.type === 'event' ? 'bg-indigo-400/30' : 'bg-blue-400/30'}`}>
-                    {m.type === 'event' ? <CalendarDays size={14} className="text-white" /> : <TaskIcon size={14} className="brightness-200" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold text-white break-all leading-tight mb-1">{m.title}</p>
-                    <p className="text-[9px] font-medium text-white/50 truncate flex items-center gap-1">
-                      <CalendarDays size={8} /> {m.deadlineDate || m.date || 'Today'} • <Clock size={8} /> {m.deadlineTime || m.time || 'Anytime'}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-xl border border-white/10 opacity-60 w-fit">
-                <CheckCircle2 size={12} className="text-white" />
-                <p className="text-[10px] font-bold text-white uppercase tracking-wider">All missions cleared</p>
-              </div>
-            )}
+    <div className="space-y-4 sm:space-y-6 pb-24 lg:pb-12 animate-fade-in max-w-[1440px] mx-auto">
+      
+      {/* ── 1. NATIVE-LIKE HERO APP BAR (HIGH CONTRAST & READABLE) ── */}
+      <div className="dashboard-hero p-4 sm:p-6 relative overflow-hidden flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+        <div className="relative z-10 space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-lg sm:text-xl">👋</span>
+            <h1 className="text-base sm:text-xl font-bold tracking-tight !text-white">
+              {now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening'}, {operatorName || currentUser?.displayName?.split(' ')[0] || 'Commander'}
+            </h1>
           </div>
-
-          <p style={{ color: '#fff', fontSize: '34px', fontWeight: 300, fontFamily: '"Space Mono", monospace', letterSpacing: '0.05em', marginBottom: '16px' }}>
-            {today.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          <p className="text-xs !text-slate-300 font-normal">
+            {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} • <span className="font-semibold !text-white">{stats.pendingTasks} tasks open</span> ({stats.rate}% done)
           </p>
-          <div>
-            <div style={{ height: '5px', borderRadius: '99px', background: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${dayPct}%`, background: '#fff', borderRadius: '99px', transition: 'width 1s ease' }} />
+
+          {/* Day Progress Meter */}
+          <div className="pt-1 flex items-center gap-2.5">
+            <div className="w-28 sm:w-40 h-1.5 rounded-full bg-black/40 overflow-hidden shadow-inner">
+              <div
+                style={{ width: `${dayProgressPct}%` }}
+                className="h-full rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 transition-all duration-500"
+              />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
-              <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', fontWeight: 500 }}>Day progress</span>
-              <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700 }}>{dayPct}%</span>
-            </div>
+            <span className="text-[10px] font-mono font-medium !text-slate-300">
+              Cycle {dayProgressPct}%
+            </span>
           </div>
         </div>
 
-        {/* ── Focus Timer ── */}
-        <div style={card} className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '14px' }}>Focus Timer</p>
-            <Clock size={16} style={{ color: 'var(--text-muted)' }} />
-          </div>
-          <div className="flex gap-1.5 mb-5 p-1 rounded-xl" style={cardDeep}>
-            {['focus', 'break'].map(m => (
-              <button key={m} onClick={() => switchMode(m)} className="flex-1 py-2 text-xs font-semibold rounded-lg transition-all capitalize"
-                style={timerMode === m ? { background: '#3b82f6', color: '#fff' } : { color: 'var(--text-muted)' }}>{m}</button>
-            ))}
-          </div>
-
-          <div className="flex justify-center mb-5">
-            <div className="relative w-36 h-36 flex items-center justify-center">
-              <svg className="absolute inset-0 w-full h-full -rotate-90">
-                <circle cx="72" cy="72" r="64" fill="none" strokeWidth="6" style={{ stroke: 'var(--border)' }} />
-                <circle cx="72" cy="72" r="64" fill="none" strokeWidth="6" stroke="#3b82f6" strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 64}
-                  strokeDashoffset={2 * Math.PI * 64 * (1 - progressPct / 100)}
-                  className="transition-all duration-1000"
-                  style={{ filter: 'drop-shadow(0 0 6px rgba(59,130,246,0.6))' }}
-                />
-              </svg>
-              <div className="text-center z-10">
-                <p style={{ fontFamily: '"Space Mono", monospace', fontSize: '30px', fontWeight: 300, color: 'var(--text-main)', letterSpacing: '0.05em' }}>{formatTime}</p>
-                <p className="text-xs font-semibold mt-1" style={{ color: isActive ? '#ef4444' : '#22c55e' }}>{isActive ? '● Active' : '○ Standby'}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <button onClick={toggleTimer} className="flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all"
-              style={{ background: isActive ? 'rgba(239,68,68,0.12)' : '#3b82f6', color: isActive ? '#ef4444' : '#fff' }}>
-              {isActive ? 'Pause' : 'Start'}
-            </button>
-            <button onClick={resetTimer} className="px-4 py-2.5 rounded-xl border border-[var(--border)] text-[var(--text-muted)] bg-[var(--bg-deep)] transition-all">
-              <RotateCcw size={14} />
-            </button>
-          </div>
-        </div>
-
-        {/* Audio */}
-        <div style={card} className="p-4">
-          <p style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '13px', marginBottom: '10px' }}>Nexus Music Player</p>
-          <Suspense fallback={<div className="h-[152px] animate-pulse bg-white/5 rounded-xl" />}>
-            <SpotifyPlayer ref={spotifyRef} />
-          </Suspense>
-        </div>
-
-        {/* ── MOBILE ONLY: Portals & Stats (Interactive) ── */}
-        <div className={`lg:hidden flex ${isStatsExpanded ? 'flex-col' : 'flex-row'} gap-3 px-1 transition-all duration-300`}>
-          {/* Quick Portals Minimal */}
-          <div style={card} className={`p-3.5 flex flex-col transition-all duration-300 ${isStatsExpanded ? 'w-full' : 'w-1/2'}`}>
-            <div className="flex items-center justify-between mb-2.5">
-              <p className="text-[10px] font-bold text-[var(--text-main)] uppercase tracking-wider">Portals</p>
-              <Link2 size={12} className="text-[var(--text-muted)]" />
-            </div>
-            <div className={`grid ${isStatsExpanded ? 'grid-cols-4' : 'grid-cols-2'} gap-2`}>
-              <NavLink to="/calendar" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl">
-                <CalendarDays size={16} className="text-[var(--text-muted)]" />
-                <span className="text-[8px] font-bold mt-1 text-[var(--text-muted)]">Cal</span>
-              </NavLink>
-              {portals.slice(0, isStatsExpanded ? 6 : 2).map(p => (
-                <div key={p.id} className="relative group">
-                  <a href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl h-full">
-                    {p.icon?.includes('/') ? <img src={p.icon} className="w-4 h-4 object-contain invert" /> : <span className="text-sm">{p.icon || '🔗'}</span>}
-                    <span className="text-[8px] font-bold truncate mt-1 w-full text-center">{p.title || 'Link'}</span>
-                  </a>
-                  <div className="absolute -top-1 -right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => openEditModal(p)} className="bg-blue-500 text-white rounded-full p-1 shadow-md"><Pencil size={8} /></button>
-                    <button onClick={() => handleDeletePortal(p.id)} className="bg-red-500 text-white rounded-full p-1 shadow-md"><X size={8} /></button>
-                  </div>
-                </div>
-              ))}
-              <button onClick={() => { setPortalEditTarget(null); setIsHubModalOpen(true); }} className="flex flex-col items-center justify-center p-2 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl">
-                <Plus size={16} className="text-[var(--text-faint)]" />
-              </button>
-            </div>
-          </div>
-
-          {/* Mission Stats Minimal (Expandable) */}
-          <div
-            style={card}
-            className={`p-3.5 flex flex-col transition-all duration-500 overflow-hidden ${isStatsExpanded ? 'w-full' : 'w-1/2'}`}
+        {/* Quick CTA Buttons */}
+        <div className="relative z-10 flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => { setEditTarget(null); setIsModalOpen(true); }}
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl sm:rounded-2xl bg-blue-600 hover:bg-blue-500 !text-white text-xs font-bold shadow-md shadow-blue-500/25 active:scale-95 transition-all"
           >
-            <div className="flex items-center justify-between mb-2.5">
-              <p className="text-[10px] font-bold text-[var(--text-main)] uppercase tracking-wider">Missions</p>
-              <button onClick={() => setIsStatsExpanded(!isStatsExpanded)} className="p-1 hover:bg-white/5 rounded-md transition-colors text-blue-500">
-                {isStatsExpanded ? <div className="text-[9px] font-bold">Collapse ↑</div> : <BarChart3 size={12} />}
+            <Plus size={14} />
+            <span>New Mission</span>
+          </button>
+
+          <button
+            onClick={() => { setEditTarget(null); setIsVaultModalOpen(true); }}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl sm:rounded-2xl bg-white/10 hover:bg-white/15 !text-white text-xs font-bold border border-white/20 active:scale-95 transition-all"
+          >
+            <Library size={14} />
+            <span>New Note</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ── 2. NATIVE MOBILE APP DUAL MATRIX (ON MOBILE: TIMER + STATS SIDE-BY-SIDE) ── */}
+      <div className="grid grid-cols-2 gap-3 lg:hidden">
+        
+        {/* MOBILE FOCUS TIMER TILE */}
+        <div className="bento-card p-3.5 bg-white dark:bg-[#121620] border border-slate-200/70 dark:border-slate-800 flex flex-col justify-between">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 capitalize">
+              ⏳ {timerMode}
+            </span>
+            <button
+              onClick={() => switchMode(timerMode === 'focus' ? 'break' : 'focus')}
+              className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900"
+            >
+              Mode
+            </button>
+          </div>
+
+          <div className="py-1 text-center">
+            <span className="text-2xl font-extrabold font-mono tracking-tight text-slate-900 dark:text-white block">
+              {timerDisplay}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 pt-1">
+            <button
+              onClick={toggleTimer}
+              className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1 text-[10px] font-bold !text-white shadow-sm active:scale-95 ${
+                isTimerActive ? 'bg-amber-500' : 'bg-blue-600'
+              }`}
+            >
+              {isTimerActive ? <Pause size={11} /> : <Play size={11} />}
+              <span>{isTimerActive ? 'Pause' : 'Start'}</span>
+            </button>
+            <button
+              onClick={resetTimer}
+              className="w-7 h-7 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white"
+            >
+              <RotateCcw size={11} />
+            </button>
+          </div>
+        </div>
+
+        {/* MOBILE VELOCITY STATS TILE (OBSIDIAN DARK) */}
+        <div className="dashboard-analytics p-3.5 !text-white flex flex-col justify-between">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-wider">
+              Velocity
+            </span>
+            <BarChart3 size={12} className="text-cyan-400" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-1 py-1 text-center">
+            <div>
+              <span className="text-lg font-black font-mono !text-white block leading-none">{stats.total}</span>
+              <span className="text-[8px] font-bold !text-slate-400 uppercase">Assigned</span>
+            </div>
+            <div>
+              <span className="text-lg font-black font-mono !text-emerald-400 block leading-none">{stats.completed}</span>
+              <span className="text-[8px] font-bold !text-slate-400 uppercase">Done</span>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between text-[9px] font-bold !text-slate-300 mb-0.5">
+              <span>Rate</span>
+              <span className="text-cyan-400">{stats.rate}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-black/40 overflow-hidden">
+              <div style={{ width: `${stats.rate}%` }} className="h-full striped-cyan" />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── 3. NATIVE MOBILE SHORTCUTS DOCK (4 COLUMNS) ── */}
+      <div className="bento-card p-3 sm:p-4 bg-white dark:bg-[#121620] border border-slate-200/70 dark:border-slate-800 lg:hidden">
+        <div className="flex justify-between items-center mb-2 px-1">
+          <div className="flex items-center gap-1.5">
+            <Link2 size={12} className="text-blue-500" />
+            <span className="text-[10px] font-bold text-slate-800 dark:text-white uppercase tracking-wider">
+              Shortcuts
+            </span>
+          </div>
+          <button
+            onClick={() => { setPortalEditTarget(null); setIsHubModalOpen(true); }}
+            className="text-[10px] font-bold text-blue-500 hover:underline flex items-center gap-0.5"
+          >
+            <Plus size={11} />
+            <span>Add</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
+          <NavLink
+            to="/calendar"
+            className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/60 transition-all text-center"
+          >
+            <CalendarDays size={18} className="text-blue-500" />
+            <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-1 truncate w-full">Calendar</span>
+          </NavLink>
+
+          {portals.slice(0, 3).map((p) => (
+            <a
+              key={p.id}
+              href={p.url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/60 transition-all text-center"
+            >
+              <span className="text-base">{p.icon || '🔗'}</span>
+              <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 mt-1 truncate w-full">
+                {p.title}
+              </span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 4. TWO-COLUMN RESPONSIVE BENTO GRID (DESKTOP 8-COL / 4-COL) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+        
+        {/* ────────────────────────────────────────────────
+            LEFT MAIN COLUMN (8 Cols on Desktop): Focus + Tasks + Vault
+        ──────────────────────────────────────────────── */}
+        <div className="lg:col-span-8 space-y-4 sm:space-y-6">
+          
+          {/* A. DESKTOP FOCUS ENGINE (HIDDEN ON MOBILE, USES TOP DUAL TILE) */}
+          <div className="hidden lg:block bento-card p-6 bg-white dark:bg-[#121620] border border-slate-200/70 dark:border-slate-800">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-sm">
+                  ⏳
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white leading-none">
+                    Focus Engine & Timer
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    Pomodoro Interval Tracker
+                  </span>
+                </div>
+              </div>
+
+              {/* Mode Switcher */}
+              <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800">
+                <button
+                  onClick={() => switchMode('focus')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                    timerMode === 'focus'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Focus Mode
+                </button>
+                <button
+                  onClick={() => switchMode('break')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                    timerMode === 'break'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  Break Time
+                </button>
+              </div>
+            </div>
+
+            {/* Countdown & Preset Chips */}
+            <div className="flex items-center justify-between gap-4 py-2">
+              <div>
+                <span className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
+                  {timerDisplay}
+                </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                    isTimerActive ? 'text-emerald-500 animate-pulse' : 'text-slate-400'
+                  }`}>
+                    {isTimerActive ? `● ${timerMode} running` : `Standby (${timerMode})`}
+                  </span>
+                  
+                  {/* Presets */}
+                  <div className="flex items-center gap-1 pl-2 border-l border-slate-200 dark:border-slate-700">
+                    {focusPresets.map((mins) => (
+                      <button
+                        key={mins}
+                        onClick={() => setFocusDuration(mins)}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition-all ${
+                          focusDuration === mins
+                            ? 'bg-blue-600 !text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        }`}
+                        title={`Set focus to ${mins} mins`}
+                      >
+                        {mins}m
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={toggleTimer}
+                  className={`px-6 py-3 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold !text-white shadow-md transition-all active:scale-95 ${
+                    isTimerActive
+                      ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/25'
+                      : 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/25'
+                  }`}
+                >
+                  {isTimerActive ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+                  <span>{isTimerActive ? 'Pause Timer' : 'Start Focus'}</span>
+                </button>
+
+                <button
+                  onClick={resetTimer}
+                  className="w-11 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
+                  title="Reset Timer"
+                >
+                  <RotateCcw size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Progress Meter */}
+            <div className="mt-4">
+              <div className="h-3 rounded-xl bg-slate-100 dark:bg-slate-800 p-0.5 overflow-hidden">
+                <div
+                  style={{ width: `${Math.max(8, progressPct || 0)}%` }}
+                  className={`h-full rounded-lg transition-all duration-300 ${
+                    timerMode === 'focus' ? 'striped-emerald' : 'striped-orange'
+                  }`}
+                />
+              </div>
+            </div>
+
+            {/* Embedded Spotify Mini Player */}
+            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <Suspense fallback={null}>
+                <SpotifyPlayer ref={spotifyRef} />
+              </Suspense>
+            </div>
+          </div>
+
+          {/* B. LIVE MISSIONS QUEUE (RESPONSIVE FOR ALL SCREEN SIZES) */}
+          <div className="bento-card p-4 sm:p-6 bg-white dark:bg-[#121620] border border-slate-200/70 dark:border-slate-800">
+            {/* Header & Breadcrumb */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                    Live Mission Queue
+                  </h2>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    {filteredQueue.length} items
+                  </span>
+                  {selectedCalendarFilter && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                      📅 Date: {selectedCalendarFilter}
+                      <button onClick={() => setSelectedCalendarFilter(null)} className="ml-0.5 hover:text-black">✕</button>
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400">Manage tasks, events, and folders</p>
+              </div>
+
+              {currentFolder ? (
+                <button
+                  onClick={() => setCurrentFolder(null)}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 transition-colors"
+                >
+                  <ArrowLeft size={12} />
+                  <span>Exit {currentFolder.title}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setEditTarget(null); setIsModalOpen(true); }}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  <Plus size={13} />
+                  <span>Detailed Mission</span>
+                </button>
+              )}
+            </div>
+
+            {/* INLINE QUICK-ADD INPUT */}
+            <form onSubmit={handleQuickAdd} className="mb-3 sm:mb-4">
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  value={quickInput}
+                  onChange={(e) => setQuickInput(e.target.value)}
+                  placeholder="⚡ Quick Add: Type mission & press Enter..."
+                  className="w-full h-10 sm:h-11 pl-3.5 sm:pl-4 pr-10 rounded-xl sm:rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 shadow-sm"
+                />
+                <button
+                  type="submit"
+                  disabled={!quickInput.trim()}
+                  className="absolute right-1.5 p-1.5 rounded-lg sm:rounded-xl bg-blue-600 !text-white disabled:opacity-30 disabled:pointer-events-none hover:bg-blue-500 active:scale-95 transition-all shadow-sm"
+                  title="Add Task"
+                >
+                  <CornerDownLeft size={13} />
+                </button>
+              </div>
+            </form>
+
+            {/* Tabs & Search Bar */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-hide">
+                {TABS_WITH_COUNTS.map((tab) => {
+                  const isSelected = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all ${
+                        isSelected
+                          ? 'bg-slate-900 dark:bg-white !text-white dark:!text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span className={`text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded-full ${
+                        isSelected
+                          ? 'bg-white/20 dark:bg-slate-900/20 !text-white dark:!text-slate-900'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                      }`}>
+                        {tab.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="relative w-full sm:w-56">
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Filter missions..."
+                  value={taskSearch}
+                  onChange={(e) => setTaskSearch(e.target.value)}
+                  className="w-full h-8 sm:h-9 pl-8 pr-3 rounded-lg sm:rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                />
+              </div>
+            </div>
+
+            {/* Task Items List */}
+            <div className="space-y-2 max-h-[440px] overflow-y-auto pr-1">
+              {filteredQueue.length === 0 ? (
+                <div className="py-10 text-center text-slate-400">
+                  <span className="text-2xl sm:text-3xl block mb-1.5">🎉</span>
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-200">No active items in queue</p>
+                  <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Use the quick add bar above to create a task in 1 second!</p>
+                </div>
+              ) : (
+                filteredQueue.map((item) => {
+                  const isFolder = item.type === 'folder';
+                  const pConf = priorityConfig[item.priority] || priorityConfig.low;
+                  const dateInfo = formatNaturalDate(item.date || item.deadlineDate, item.time || item.deadlineTime);
+
+                  return (
+                    <motion.div
+                      layout
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -5 }}
+                      key={item.id}
+                      onClick={() => isFolder && setCurrentFolder(item)}
+                      className={`dashboard-task-row p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border transition-all flex items-center justify-between gap-2 sm:gap-3 group cursor-pointer ${
+                        item.isCompleted
+                          ? 'bg-slate-50/50 dark:bg-slate-800/20 border-transparent opacity-60'
+                          : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 border-slate-200/60 dark:border-slate-700/50 hover:border-slate-300 shadow-xs'
+                      }`}
+                    >
+                      {/* Left: Checkbox + Title */}
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                        {!isFolder ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleTask(item.id); }}
+                            className="shrink-0 transition-transform active:scale-75"
+                            title={item.isCompleted ? 'Mark uncompleted' : 'Mark completed'}
+                          >
+                            {item.isCompleted ? (
+                              <CheckCircle2 size={18} className="text-emerald-500 fill-emerald-500/20" />
+                            ) : (
+                              <Circle size={18} className="text-slate-300 dark:text-slate-600 hover:text-blue-500" />
+                            )}
+                          </button>
+                        ) : (
+                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                            <Folder size={13} />
+                          </div>
+                        )}
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <h4 className={`text-xs sm:text-sm font-semibold truncate text-slate-800 dark:text-slate-100 ${
+                              item.isCompleted ? 'line-through text-slate-400' : ''
+                            }`}>
+                              {item.title}
+                            </h4>
+                            {item.priority && item.priority !== 'low' && !item.isCompleted && (
+                              <span className={`text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded border ${pConf.bg} ${pConf.text}`}>
+                                {pConf.label}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Date & Time Badge */}
+                          {dateInfo && (
+                            <div className="flex items-center gap-1 text-[9px] sm:text-[10px] mt-0.5 font-medium">
+                              <span className={`flex items-center gap-1 ${
+                                dateInfo.isOverdue && !item.isCompleted
+                                  ? 'text-red-500 font-bold'
+                                  : dateInfo.isToday
+                                  ? 'text-blue-600 dark:text-blue-400 font-semibold'
+                                  : 'text-slate-400 font-mono'
+                              }`}>
+                                <Clock size={9} />
+                                {dateInfo.label}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right: Actions on Hover */}
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setEditTarget(item); setIsModalOpen(true); }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil size={11} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteTask(item.id); }}
+                          className="p-1 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Clear Completed Footer */}
+            {stats.completed > 0 && (
+              <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                <span className="text-slate-400 font-medium text-[11px]">{stats.completed} finished</span>
+                <button onClick={purgeCompleted} className="text-red-500 hover:underline font-bold text-[11px]">
+                  Clear Done
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* C. KNOWLEDGE VAULT & STICKY NOTES STREAM */}
+          <div className="bento-card p-4 sm:p-6 bg-white dark:bg-[#121620] border border-slate-200/70 dark:border-slate-800">
+            <div className="flex justify-between items-center mb-3">
+              <div>
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                  Knowledge Vault
+                </h3>
+                <p className="text-[10px] sm:text-xs text-slate-400">Notes, ideas, and audio memos</p>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => { setEditTarget(null); setIsVaultModalOpen(true); }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg sm:rounded-xl bg-amber-500 !text-white text-[11px] sm:text-xs font-bold hover:bg-amber-600 transition-colors shadow-sm"
+                >
+                  <Plus size={12} />
+                  <span>Note</span>
+                </button>
+                <NavLink to="/vault" className="text-[11px] sm:text-xs font-bold text-blue-500 hover:underline">
+                  All ↗
+                </NavLink>
+              </div>
+            </div>
+
+            {/* Vault Tabs */}
+            <div className="flex items-center gap-1 pb-2 mb-3 border-b border-slate-100 dark:border-slate-800 overflow-x-auto scrollbar-hide">
+              {VAULT_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setVaultActiveTab(tab.key)}
+                  className={`px-2.5 py-1 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all ${
+                    vaultActiveTab === tab.key
+                      ? 'bg-amber-400 text-slate-900 font-extrabold shadow-sm'
+                      : 'text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 2-Column Responsive Notes Matrix */}
+            {filteredVault.length === 0 ? (
+              <div className="py-6 text-center text-slate-400">
+                <p className="text-xs">No notes found in this category</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {filteredVault.slice(0, 4).map((item) => (
+                  <BentoVaultCard
+                    key={item.id}
+                    item={item}
+                    openEditModal={(target) => { setEditTarget(target); setIsVaultModalOpen(true); }}
+                    deleteTask={deleteTask}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* ────────────────────────────────────────────────
+            RIGHT SIDEBAR COLUMN (4 Cols on Desktop): Portals + Velocity + AI + Mini Calendar
+        ──────────────────────────────────────────────── */}
+        <div className="lg:col-span-4 space-y-4 sm:space-y-6">
+          
+          {/* A. DESKTOP QUICK PORTALS (HIDDEN ON MOBILE, SHOWN ON DESKTOP) */}
+          <div className="hidden lg:block bento-card p-5 sm:p-6 bg-white dark:bg-[#121620] border border-slate-200/70 dark:border-slate-800">
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2">
+                <Link2 size={15} className="text-blue-500" />
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Quick Portals
+                </h3>
+              </div>
+              <button
+                onClick={() => { setPortalEditTarget(null); setIsHubModalOpen(true); }}
+                className="text-xs font-bold text-blue-500 hover:underline flex items-center gap-0.5"
+              >
+                <Plus size={12} />
+                <span>Add Hub</span>
               </button>
             </div>
 
-            {!isStatsExpanded ? (
-              <div className="flex flex-col gap-2 animate-fade-in" onClick={() => setIsStatsExpanded(true)}>
-                <div className="flex gap-2">
-                  <div className="flex-1 p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl text-center">
-                    <p className="text-sm font-black text-[var(--text-main)]">{stats.total}</p>
-                    <p className="text-[7px] font-bold text-[var(--text-faint)] uppercase tracking-tighter">Total</p>
-                  </div>
-                  <div className="flex-1 p-2 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl text-center">
-                    <p className="text-sm font-black text-green-500">{stats.completed}</p>
-                    <p className="text-[7px] font-bold text-[var(--text-faint)] uppercase tracking-tighter">Done</p>
-                  </div>
-                </div>
-                <div className="h-1 bg-[var(--bg-deep)] rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${stats.rate}%` }} />
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-4 animate-fade-in-up py-1">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-end">
-                    <p className="text-2xl font-black text-blue-500 tracking-tighter">{stats.rate}%</p>
-                    <p className="text-[9px] font-bold opacity-40 uppercase">Efficiency</p>
-                  </div>
-                  <div className="h-1.5 bg-black/20 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500" style={{ width: `${stats.rate}%` }} />
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-[8px] font-bold text-[var(--text-faint)]">
-                    <span className="flex items-center gap-1">● {stats.pending} Pending</span>
-                    <span className="flex items-center gap-1 text-green-500">✔ {stats.completed} Done</span>
-                  </div>
-                </div>
-                <div className="bg-[var(--bg-deep)] rounded-2xl p-3 border border-[var(--border-soft)] flex flex-col justify-between">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-[9px] font-bold uppercase text-[var(--text-muted)]">Breakdown</span>
-                    <TaskIcon size={10} className="opacity-50" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-[var(--text-muted)]">Tasks</span>
-                      <span className="text-[var(--text-main)]">{stats.tasksCount}</span>
-                    </div>
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-[var(--text-muted)]">Events</span>
-                      <span className="text-[var(--text-main)]">{stats.eventsCount}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-      </section>
-
-      {/* ════════════════ CENTER COL ════════════════ */}
-      <section className="lg:col-span-6 space-y-5 flex flex-col">
-
-        {/* ── Missions Snapshot (Center Column) ── */}
-        <div style={{ ...card, padding: '24px', display: 'flex', flexDirection: 'column' }} className="flex-1">
-          <div className="flex justify-between items-center mb-5 pb-4 border-b border-[var(--border)]">
-            <div>
-              <h2 style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '16px' }}>Upcoming Missions</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>
-                Your top {upcomingMissions.length} priority objectives
-              </p>
-            </div>
-            <NavLink 
-              to="/tasks" 
-              className="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 rounded-xl text-xs font-bold transition-all border border-blue-500/20"
-            >
-              Full View ↗
-            </NavLink>
-          </div>
-
-          <div className="flex-1 space-y-2">
-            {loading ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="w-6 h-6 rounded-full border-2 border-blue-500/30 border-t-blue-500 animate-spin" />
-              </div>
-            ) : upcomingMissions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center opacity-50">
-                <div className="text-3xl mb-2">✅</div>
-                <p className="text-sm font-medium">All objectives secured.</p>
-              </div>
-            ) : (
-              upcomingMissions.map(item => {
-                const p = item.type === 'task' ? (priorityConfig[item.priority] || priorityConfig.mid) : null;
-                return (
-                  <div key={item.id} className="flex items-start gap-3 p-3.5 rounded-xl bg-[var(--bg-deep)] border border-[var(--border-soft)] group transition-all">
-                    <button 
-                      onClick={() => toggleTask(item.id, item.isCompleted)} 
-                      className="mt-0.5 w-4 h-4 rounded-full border flex items-center justify-center bg-transparent flex-shrink-0"
-                      style={{ borderColor: p?.dot === 'bg-red-500' ? '#ef4444' : 'var(--border)' }}
-                    >
-                      {item.isCompleted && <div className="w-2 h-2 rounded-full bg-green-500" />}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-xs font-bold break-all text-[var(--text-main)] leading-tight">
-                          {item.title}
-                        </p>
-                        {item.type === 'task' && p && (
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-wider"
-                            style={{ background: item.priority === 'high' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)', color: item.priority === 'high' ? '#ef4444' : '#22c55e' }}>
-                            {p.label}
-                          </span>
-                        )}
-                      </div>
-                      {item.detail && <p className="text-[10px] text-[var(--text-muted)] truncate mt-1">{item.detail}</p>}
-                      {(item.deadlineDate || item.date) && (
-                        <p className="text-[9px] font-bold text-[var(--text-faint)] mt-1.5 flex items-center gap-2">
-                          <span className="flex items-center gap-1"><CalendarDays size={10} className="text-[var(--text-faint)]" /> {item.deadlineDate || item.date}</span>
-                          {(item.deadlineTime || item.time) && <span className="flex items-center gap-1"><Clock size={10} className="text-[var(--text-faint)]" /> {item.deadlineTime || item.time}</span>}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* ── Nexus Vault Snapshot ── */}
-        <div style={{ ...card, padding: '24px', display: 'flex', flexDirection: 'column' }} className="flex-1">
-          <div className="flex justify-between items-center mb-5 pb-4 border-b border-[var(--border)]">
-            <div>
-              <h2 className="text-base font-bold flex items-center gap-2">
-                Recent Vault Captures
-              </h2>
-              <p className="text-[11px] text-[var(--text-muted)] mt-1">Your latest deposits</p>
-            </div>
-            <NavLink 
-              to="/vault" 
-              className="px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl text-xs font-bold transition-all border border-indigo-500/20"
-            >
-              Full View ↗
-            </NavLink>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 overflow-y-auto">
-            {loading ? (
-              <div className="col-span-2 flex items-center justify-center h-32">
-                <div className="w-6 h-6 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
-              </div>
-            ) : dashboardVault.length === 0 ? (
-              <div className="col-span-2 flex flex-col items-center justify-center py-12 text-center opacity-40 border border-dashed border-[var(--border)] rounded-xl">
-                <p className="text-xs font-bold">Vault is empty</p>
-              </div>
-            ) : (
-              dashboardVault.map(item => (
-                <div key={item.id} className="p-3.5 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl hover:border-indigo-500/30 transition-all">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="p-1.5 bg-indigo-500/10 text-indigo-500 rounded-lg flex-shrink-0">
-                      {item.vaultType === 'idea' ? <Lightbulb size={12} /> : item.vaultType === 'learning' ? <Library size={12} /> : <StickyNote size={12} />}
-                    </span>
-                    <h4 className="font-bold text-xs truncate text-[var(--text-main)] flex-1">{item.title}</h4>
-                  </div>
-                  <p className="text-[10px] text-[var(--text-muted)] line-clamp-2 leading-relaxed">{item.content}</p>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════ RIGHT COL ════════════════ */}
-      <section className="lg:col-span-3 space-y-4">
-
-        {/* ── DESKTOP ONLY: Standard Portals & Stats (Above Calendar) ── */}
-        <div className="hidden lg:flex flex-col gap-4">
-
-          {/* Quick Portals Standard */}
-          <div style={card} className="p-5 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm font-bold text-[var(--text-main)] uppercase tracking-wider">Quick Portals</p>
-              <Link2 size={16} className="text-[var(--text-muted)]" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <NavLink to="/calendar" className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl group hover:border-blue-500/30 transition-all">
-                <CalendarDays size={20} className="text-[var(--text-muted)] group-hover:text-blue-500" />
-                <span className="text-xs font-bold mt-2 text-[var(--text-muted)]">Calendar</span>
+            <div className="grid grid-cols-2 gap-2.5">
+              <NavLink
+                to="/calendar"
+                className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700/60 transition-all group text-center"
+              >
+                <CalendarDays size={20} className="text-blue-500 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-1.5 truncate w-full">Calendar</span>
               </NavLink>
-              {portals.map(p => (
+
+              {portals.slice(0, 5).map((p) => (
                 <div key={p.id} className="relative group">
-                  <a href={p.url} target="_blank" rel="noreferrer" className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-xl h-full hover:border-blue-500/30 transition-all">
-                    {p.icon?.includes('/') ? <img src={p.icon} className="w-5 h-5 object-contain" /> : <span className="text-lg">{p.icon || '🔗'}</span>}
-                    <span className="text-xs font-bold truncate mt-2 w-full text-center">{p.title || 'Link'}</span>
+                  <a
+                    href={p.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700/60 transition-all h-full text-center"
+                  >
+                    <span className="text-xl group-hover:scale-110 transition-transform">{p.icon || '🔗'}</span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mt-1.5 truncate w-full">
+                      {p.title}
+                    </span>
                   </a>
-                  <div className="absolute -top-1 -right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => openEditModal(p)} className="bg-blue-500 text-white rounded-full p-1.5 shadow-md transition-transform hover:scale-110"><Pencil size={12} /></button>
-                    <button onClick={() => handleDeletePortal(p.id)} className="bg-red-500 text-white rounded-full p-1.5 shadow-md transition-transform hover:scale-110"><X size={12} /></button>
-                  </div>
+                  {!p.isDefault && (
+                    <button
+                      onClick={() => handleDeletePortal(p.id)}
+                      className="absolute -top-1 -right-1 p-1 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
                 </div>
               ))}
-              <button onClick={() => { setPortalEditTarget(null); setIsHubModalOpen(true); }} className="flex flex-col items-center justify-center p-3.5 bg-[var(--bg-deep)] border border-dashed border-[var(--border)] rounded-xl hover:border-blue-500/30 transition-all">
-                <Plus size={20} className="text-[var(--text-muted)]" />
-                <span className="text-xs font-bold mt-2 text-[var(--text-faint)]">Add Hub</span>
-              </button>
             </div>
           </div>
 
-          {/* NEXUS AI WIDGET */}
+          {/* B. DESKTOP MISSION ANALYSIS (HIDDEN ON MOBILE, SHOWN ON DESKTOP) */}
+          <div className="hidden lg:block dashboard-analytics p-5 sm:p-6 !text-white">
+            <div className="flex justify-between items-center mb-3.5">
+              <div>
+                <span className="text-[9px] font-bold text-cyan-400 uppercase tracking-widest block">
+                  ANALYSIS
+                </span>
+                <h3 className="text-sm sm:text-base font-bold !text-white leading-none">
+                  Mission Velocity
+                </h3>
+              </div>
+              <BarChart3 size={16} className="text-cyan-400" />
+            </div>
+
+            {/* Dual Counters */}
+            <div className="grid grid-cols-2 gap-2.5 mb-3">
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/5">
+                <span className="text-xl sm:text-2xl font-black font-mono !text-white block">{stats.total}</span>
+                <span className="text-[9px] font-bold !text-slate-400 uppercase">Assigned</span>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/5">
+                <span className="text-xl sm:text-2xl font-black font-mono !text-emerald-400 block">{stats.completed}</span>
+                <span className="text-[9px] font-bold !text-slate-400 uppercase">Completed</span>
+              </div>
+            </div>
+
+            {/* Success Rate Meter */}
+            <div className="p-3 rounded-2xl bg-[#12151f] border border-white/5 mb-3">
+              <div className="flex justify-between text-xs font-bold !text-slate-300 mb-1.5">
+                <span>Completion Rate</span>
+                <span className="text-cyan-400">{stats.rate}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-black/40 overflow-hidden">
+                <div style={{ width: `${stats.rate}%` }} className="h-full striped-cyan transition-all duration-700" />
+              </div>
+            </div>
+
+            {/* Segmented Cyan Equalizer Bars */}
+            <div className="rounded-2xl bg-[#11141c] p-3 border border-white/[0.04] mb-3">
+              <div className="flex items-end justify-between h-14 gap-1 px-1">
+                {[12, 9, 6, 8, 4].map((h, i) => (
+                  <div key={i} className="flex-1 flex flex-col-reverse gap-1 items-center h-full justify-start">
+                    {Array.from({ length: 6 }).map((_, blockIdx) => (
+                      <div
+                        key={blockIdx}
+                        className={`w-full h-1.5 rounded-xs ${
+                          blockIdx < Math.ceil((h / 12) * 6)
+                            ? 'bg-[#00d4ff] shadow-[0_0_6px_rgba(0,212,255,0.4)]'
+                            : 'bg-slate-800'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <NavLink
+              to="/tasks"
+              className="w-full py-2 rounded-xl bg-white/10 hover:bg-white/15 text-center text-xs font-bold !text-slate-300 hover:!text-white transition-colors flex items-center justify-center gap-1.5"
+            >
+              <span>Explore All Missions</span>
+              <ArrowRight size={13} />
+            </NavLink>
+          </div>
+
+          {/* C. NEXUS AI ASSISTANT WIDGET */}
           <NexusAIWidget />
 
-          {/* Mission Stats Standard */}
-          <div style={card} className="p-5 flex flex-col">
-            <div className="flex items-center justify-between mb-5">
+          {/* D. INTERACTIVE MINI CALENDAR BENTO CARD */}
+          <div className="bento-card p-4 sm:p-6 bg-white dark:bg-[#121620] border border-slate-200/70 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-3">
               <div>
-                <p className="text-sm font-bold text-[var(--text-main)] uppercase tracking-wider">Mission Analysis</p>
-                <p className="text-[10px] text-[var(--text-muted)] font-medium">Performance tracking</p>
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-none">Calendar Filter</h4>
+                <span className="text-[9px] sm:text-[10px] text-slate-400">Click date to filter</span>
               </div>
-              <BarChart3 size={18} className="text-blue-500" />
+              <NavLink to="/calendar" className="text-xs font-bold text-blue-500 hover:underline">
+                Full View ↗
+              </NavLink>
             </div>
 
-            <div className="space-y-5">
-              {/* Primary Counter */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-4 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-2xl">
-                  <p className="text-2xl font-black text-[var(--text-main)] tracking-tight">{stats.total}</p>
-                  <p className="text-[10px] font-bold text-[var(--text-faint)] uppercase mt-0.5">Assigned</p>
-                </div>
-                <div className="p-4 bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-2xl">
-                  <p className="text-2xl font-black text-green-500 tracking-tight">{stats.completed}</p>
-                  <p className="text-[10px] font-bold text-[var(--text-faint)] uppercase mt-0.5">Successful</p>
-                </div>
-              </div>
+            <div className="flex items-center justify-between mb-2.5">
+              <button
+                onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1))}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                {monthNames[calDate.getMonth()]} {calDate.getFullYear()}
+              </span>
+              <button
+                onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1))}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
 
-              {/* Progress Detail */}
-              <div className="bg-[var(--bg-deep)] p-4 rounded-2xl border border-[var(--border-soft)]">
-                <div className="flex justify-between text-[11px] font-bold text-[var(--text-muted)] mb-2.5 uppercase tracking-wide">
-                  <span>Completion Rate</span>
-                  <span className="text-blue-500">{stats.rate}%</span>
-                </div>
-                <div className="h-2 bg-black/20 rounded-full overflow-hidden mb-4">
-                  <div className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-1000" style={{ width: `${stats.rate}%` }} />
-                </div>
+            <div className="grid grid-cols-7 mb-1.5 text-center text-[9px] sm:text-[10px] font-bold text-slate-400">
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                <span key={`${d}-${i}`}>{d}</span>
+              ))}
+            </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    <span className="text-[10px] font-bold text-[var(--text-muted)]">{stats.pendingTasks} Tasks Pending</span>
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: calFirstDay }).map((_, i) => (
+                <div key={`empty-${i}`} />
+              ))}
+              {Array.from({ length: calDaysInMonth }).map((_, i) => {
+                const d = i + 1;
+                const dateStr = `${calDate.getFullYear()}-${String(calDate.getMonth() + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                const isToday =
+                  d === today.getDate() &&
+                  calDate.getMonth() === today.getMonth() &&
+                  calDate.getFullYear() === today.getFullYear();
+                const isSelected = selectedCalendarFilter === dateStr;
+
+                return (
+                  <div
+                    key={d}
+                    onClick={() => {
+                      setSelectedCalendarFilter(isSelected ? null : dateStr);
+                    }}
+                    className={`flex items-center justify-center aspect-square rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-semibold cursor-pointer transition-all ${
+                      isSelected
+                        ? 'bg-amber-400 text-slate-900 font-extrabold shadow-md scale-105'
+                        : isToday
+                        ? 'bg-blue-600 !text-white font-bold shadow-md shadow-blue-500/25'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                    title={isSelected ? 'Clear filter' : `Filter by ${dateStr}`}
+                  >
+                    {d}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    <span className="text-[10px] font-bold text-[var(--text-muted)]">{stats.eventsCount} Events Total</span>
-                  </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
+
         </div>
 
-        {/* Quick Mini Calendar */}
-        <div style={card} className="p-5 hidden lg:block">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-[13px] font-bold text-[var(--text-main)]">Calendar</p>
-            <NavLink to="/calendar" className="text-[11px] font-bold text-blue-500 hover:underline">Full View ↗</NavLink>
-          </div>
-          <div className="flex items-center justify-between mb-3 px-1">
-            <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() - 1, 1))} className="p-1 hover:bg-[var(--bg-deep)] rounded-md"><ChevronLeft size={14} /></button>
-            <p className="text-[12px] font-bold">{monthNames[calDate.getMonth()]} {calDate.getFullYear()}</p>
-            <button onClick={() => setCalDate(new Date(calDate.getFullYear(), calDate.getMonth() + 1, 1))} className="p-1 hover:bg-[var(--bg-deep)] rounded-md"><ChevronRight size={14} /></button>
-          </div>
-          <div className="grid grid-cols-7 mb-1">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-              <div key={`${d}-${i}`} className="text-center text-[9px] font-bold text-[var(--text-faint)]">{d}</div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-y-1">
-            {Array.from({ length: calFirstDay }).map((_, i) => <div key={`empty-${i}`} />)}
-            {Array.from({ length: calDaysInMonth }).map((_, i) => {
-              const d = i + 1;
-              const isToday = d === today.getDate() && calDate.getMonth() === today.getMonth() && calDate.getFullYear() === today.getFullYear();
-              return (
-                <div key={d} className={`flex items-center justify-center aspect-square rounded-full text-[10px] ${isToday ? 'bg-blue-500 text-white font-bold shadow-sm' : 'text-[var(--text-muted)] hover:bg-[var(--bg-deep)]'}`}>
-                  {d}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      </div>
 
-      {/* Modals - Lazy Loaded for Memory Efficiency */}
+      {/* ── MODALS ── */}
       <Suspense fallback={null}>
         {isModalOpen && (
           <ActivityModal
             isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
+            onClose={() => { setIsModalOpen(false); setEditTarget(null); }}
             onSave={handleSaveActivity}
             activity={editTarget}
           />
         )}
+
         {isHubModalOpen && (
           <AddHubModal
             isOpen={isHubModalOpen}
@@ -816,12 +1206,13 @@ export default function Dashboard() {
             portal={portalEditTarget}
           />
         )}
+
         {isVaultModalOpen && (
           <VaultModal
             isOpen={isVaultModalOpen}
-            onClose={() => setIsVaultModalOpen(false)}
+            onClose={() => { setIsVaultModalOpen(false); setEditTarget(null); }}
             onSave={handleSaveActivity}
-            activity={editTarget}
+            initialData={editTarget}
           />
         )}
       </Suspense>

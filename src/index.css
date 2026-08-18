@@ -31,23 +31,23 @@
    DESIGN TOKENS — Light Mode
 ──────────────────────────────────────────────── */
 html:not(.dark) {
-  --bg-main: #f0f4ff;
+  --bg-main: #f4f5f8;
   --bg-card: #ffffff;
-  --bg-deep: #e8eeff;
-  --bg-elevated: #f7f9ff;
-  --border: #dde4f5;
-  --border-soft: #e8eeff;
+  --bg-deep: #ebedf2;
+  --bg-elevated: #ffffff;
+  --border: #e2e5eb;
+  --border-soft: #edf0f5;
   --accent: #3b82f6;
   --accent-2: #2563eb;
   --accent-glow: rgba(59, 130, 246, 0.18);
-  --text-main: #0f172a;
-  --text-muted: #4b5a7a;
+  --text-main: #111827;
+  --text-muted: #64748b;
   --text-faint: #94a3b8;
-  --success: #16a34a;
-  --danger: #dc2626;
-  --warning: #d97706;
-  --shadow-card: 0 2px 16px rgba(59, 130, 246, 0.08);
-  --shadow-lg: 0 8px 40px rgba(59, 130, 246, 0.14);
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.08);
 }
 
 /* ────────────────────────────────────────────────
@@ -84,6 +84,19 @@ html:not(.dark) {
     color-scheme: light;
   }
 
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
   /* Scrollbar */
   ::-webkit-scrollbar {
     width: 4px;
@@ -105,7 +118,7 @@ html:not(.dark) {
 }
 
 /* ────────────────────────────────────────────────
-   THEME-AWARE OVERRIDES (Tailwind dark tokens → CSS vars)
+   THEME-AWARE OVERRIDES (Legacy token helpers)
 ──────────────────────────────────────────────── */
 html:not(.dark) .bg-nexus-bgDark {
   background-color: var(--bg-deep) !important;
@@ -125,26 +138,6 @@ html:not(.dark) .text-nexus-textMain {
 
 html:not(.dark) .text-nexus-textMuted {
   color: var(--text-muted) !important;
-}
-
-html:not(.dark) .text-white {
-  color: var(--text-main) !important;
-}
-
-html:not(.dark) .text-gray-400 {
-  color: var(--text-muted) !important;
-}
-
-html:not(.dark) .text-gray-500 {
-  color: var(--text-muted) !important;
-}
-
-html:not(.dark) .text-gray-600 {
-  color: #64748b !important;
-}
-
-html:not(.dark) .bg-gray-900 {
-  background-color: var(--bg-deep) !important;
 }
 
 /* ────────────────────────────────────────────────
@@ -216,6 +209,201 @@ html:not(.dark) .bg-gray-900 {
 
 .fab:active {
   transform: scale(0.95);
+}
+
+/* ────────────────────────────────────────────────
+   BENTO DASHBOARD — OUTCROWD AESTHETIC HELPERS
+──────────────────────────────────────────────── */
+
+/* Dot Grid Background Pattern */
+.bg-dot-pattern {
+  background-image: radial-gradient(rgba(148, 163, 184, 0.28) 1.2px, transparent 1.2px);
+  background-size: 20px 20px;
+}
+
+html.dark .bg-dot-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Bento Card Archetypes */
+.bento-card {
+  background-color: #ffffff;
+  border-radius: 1.75rem; /* 28px */
+  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.03), 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html.dark .bento-card {
+  background-color: #121620;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.25);
+}
+
+.bento-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.06);
+}
+
+html.dark .bento-card:hover {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+}
+
+/* Obsidian Black Card */
+.bento-card-dark {
+  background-color: #080a0e;
+  color: #ffffff;
+  border-radius: 1.75rem;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.22);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bento-card-dark:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 40px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* Sunshine Yellow Note Card */
+.bento-card-yellow {
+  background-color: #fbd65b;
+  color: #453406;
+  border-radius: 1.75rem;
+  box-shadow: 0 6px 28px 0 rgba(234, 179, 8, 0.2);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bento-card-yellow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px 0 rgba(234, 179, 8, 0.28);
+}
+
+/* Striped Progress Bar Keyframes & Utilities */
+@keyframes moveStripes {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 28px 0;
+  }
+}
+
+.striped-emerald {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #10b981,
+    #10b981 7px,
+    #059669 7px,
+    #059669 14px
+  );
+  background-size: 28px 28px;
+}
+
+.striped-cyan {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #00d4ff,
+    #00d4ff 8px,
+    #0284c7 8px,
+    #0284c7 16px
+  );
+  background-size: 28px 28px;
+  animation: moveStripes 2s linear infinite;
+}
+
+.striped-orange {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #f97316,
+    #f97316 7px,
+    #ea580c 7px,
+    #ea580c 14px
+  );
+  background-size: 28px 28px;
+}
+
+/* Dashboard premium — Nexus palette */
+.dashboard-premium {
+  --dash-surface: rgba(255, 255, 255, 0.92);
+  --dash-surface-raised: #ffffff;
+  --dash-line: rgba(15, 23, 42, 0.09);
+  --dash-blue: #2563eb;
+  --dash-lime: #d8ff63;
+}
+
+.dashboard-premium .bento-card {
+  position: relative;
+  border: 1px solid var(--dash-line);
+  border-radius: 1.35rem;
+  background: var(--dash-surface);
+  box-shadow: 0 18px 55px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* ────────────────────────────────────────────────
+   DASHBOARD REFINED BENTO SYSTEM
+──────────────────────────────────────────────── */
+.dashboard-hero {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.5rem;
+  color: #ffffff !important;
+  background:
+    radial-gradient(circle at 86% 4%, rgba(96, 165, 250, 0.25), transparent 35%),
+    radial-gradient(circle at 95% 100%, rgba(59, 130, 246, 0.15), transparent 30%),
+    linear-gradient(135deg, #0b1220 0%, #111a2e 58%, #0d1527 100%);
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.18), inset 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.dashboard-hero h1 {
+  color: #ffffff !important;
+}
+
+.dashboard-hero p {
+  color: #cbd5e1 !important;
+}
+
+.dashboard-task-row {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dashboard-task-row:hover {
+  transform: translateY(-1px);
+}
+
+.dashboard-analytics {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.5rem;
+  color: #ffffff !important;
+  background:
+    radial-gradient(circle at 95% 0%, rgba(0, 212, 255, 0.14), transparent 34%),
+    linear-gradient(145deg, #080c13, #111827);
+  box-shadow: 0 20px 50px rgba(2, 6, 23, 0.25), inset 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.dashboard-analytics * {
+  color-scheme: dark;
+}
+
+.dashboard-analytics::after {
+  content: '';
+  position: absolute;
+  inset: auto -10% -45% 30%;
+  height: 8rem;
+  border-radius: 999px;
+  background: rgba(0, 212, 255, 0.08);
+  filter: blur(45px);
+  pointer-events: none;
 }
 
 /* ────────────────────────────────────────────────

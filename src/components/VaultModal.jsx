@@ -1,283 +1,358 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, StickyNote, Lightbulb, Library, Image, Link, Upload, Loader2, Pencil, Trash2 } from 'lucide-react';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebase';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  X, StickyNote, Lightbulb, Library, Image, Link,
+  Upload, Loader2, Sparkles, Mic, Square, Play, Pause, Trash2
+} from 'lucide-react';
 
-export default function VaultModal({ isOpen, onClose, onSave, activity = null }) {
-  const [type, setType] = useState('note'); // note, idea, learning
+export default function VaultModal({ isOpen, onClose, onSave, initialData = null }) {
+  const [type, setType] = useState('note');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [url, setUrl] = useState('');
-  const [image, setImage] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [preview, setPreview] = useState(null);
-  const [currentImageUrl, setCurrentImageUrl] = useState('');
-  const [isZoomed, setIsZoomed] = useState(false);
+  const [audioUrl, setAudioUrl] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const timerRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
-      if (activity) {
-        setType(activity.vaultType || 'note');
-        setTitle(activity.title || '');
-        setContent(activity.content || '');
-        setUrl(activity.url || '');
-        setCurrentImageUrl(activity.imageUrl || '');
-        setPreview(activity.imageUrl || null);
-        setImage(null);
+      if (initialData) {
+        setType(initialData.vaultType || 'note');
+        setTitle(initialData.title || '');
+        setContent(initialData.content || '');
+        setUrl(initialData.url || '');
+        setPreview(initialData.imageUrl || null);
+        setAudioUrl(initialData.audioUrl || null);
       } else {
         reset();
       }
     }
-  }, [isOpen, activity]);
-
-  if (!isOpen) return null;
+  }, [isOpen, initialData]);
 
   const reset = () => {
     setTitle('');
     setContent('');
     setUrl('');
-    setImage(null);
-    if (preview && !currentImageUrl) URL.revokeObjectURL(preview);
     setPreview(null);
+    setAudioUrl(null);
     setType('note');
-    setCurrentImageUrl('');
-    setProgress(0);
+    setIsRecording(false);
+    setRecordingDuration(0);
+    clearInterval(timerRef.current);
   };
 
+  // Image Upload handler
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // 500KB Limit for Base64 efficiency
-      if (file.size > 0.5 * 1024 * 1024) {
-        alert("File terlalu besar untuk Database. Maksimal 500KB (Gunakan screenshot atau file kompres).");
-        e.target.value = "";
+      if (file.size > 1 * 1024 * 1024) {
+        alert('Image too large. Maximum size is 1MB.');
         return;
       }
-      
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImage(reader.result); // This is the Base64 string
         setPreview(reader.result);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSave = async () => {
-    if (!title.trim()) return;
-
-    setUploading(true);
-    setProgress(50); // Simulative progress for Base64
-
+  // Real Audio Recorder (MediaRecorder API)
+  const startRecording = async () => {
     try {
-      // Image is already in Base64 format if selected
-      const finalImageUrl = image || currentImageUrl;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
 
-      onSave({
-        type: 'vault',
-        vaultType: type,
-        title,
-        content,
-        url,
-        imageUrl: finalImageUrl,
-      }, activity?.id);
+      mediaRecorderRef.current.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
 
-      setProgress(100);
-      onClose();
-    } catch (error) {
-      console.error("Vault operation failed:", error);
-      alert(`Gagal menyimpan: ${error.message}`);
-    } finally {
-      setUploading(false);
-      setProgress(0);
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setAudioUrl(reader.result);
+        };
+        reader.readAsDataURL(audioBlob);
+        stream.getTracks().forEach((t) => t.stop());
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+
+      timerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.warn('Microphone access denied or unavailable', err);
+      alert('Could not access microphone.');
     }
   };
 
-  const typeConfig = {
-    note: { label: 'Quick Note', icon: <StickyNote className="w-4 h-4" />, color: '#3b82f6' },
-    idea: { label: 'Idea Spark', icon: <Lightbulb className="w-4 h-4" />, color: '#eab308' },
-    learning: { label: 'Learning Media', icon: <Library className="w-4 h-4" />, color: '#a855f7' },
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(timerRef.current);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+
+    onSave(
+      {
+        type: 'vault',
+        vaultType: type,
+        title: title.trim(),
+        content: content.trim(),
+        url: url.trim() || null,
+        imageUrl: preview || null,
+        audioUrl: audioUrl || null,
+      },
+      initialData?.id
+    );
+
+    reset();
+    onClose();
+  };
+
+  const formatDuration = (secs) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-lg bg-[#0f172a] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        
-        {/* Header */}
-        <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-          <div>
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <span className="p-2 bg-indigo-500/20 rounded-xl text-indigo-500">
-                {activity ? <Pencil size={20} /> : typeConfig[type].icon}
-              </span>
-              {activity ? 'Edit Vault Item' : 'Add to Nexus Vault'}
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              {activity ? 'Update your captured thoughts.' : 'Capture your thoughts, ideas, and resources.'}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 transition-colors">
-            <X size={20} />
-          </button>
-        </div>
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+          />
 
-        <div className="p-6 space-y-5 overflow-y-auto">
-          
-          {/* Type Selector (Only for new items or if allows type change) */}
-          <div className="flex gap-2 p-1 bg-slate-900 rounded-2xl border border-slate-800">
-            {Object.entries(typeConfig).map(([key, config]) => (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            className="relative z-50 w-full max-w-lg rounded-3xl bg-white dark:bg-[#121620] p-6 shadow-2xl border border-slate-200/80 dark:border-slate-800 max-h-[90vh] overflow-y-auto"
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center mb-5 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                  Knowledge Vault
+                </span>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  {initialData ? 'Edit Note' : 'Create Note or Voice Memo'}
+                </h2>
+              </div>
               <button
-                key={key}
-                onClick={() => setType(key)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  type === key ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
-                }`}
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+                aria-label="Close"
               >
-                {config.icon}
-                {config.label}
+                <X size={16} />
               </button>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1">Title / Label</label>
-            <input
-              type="text"
-              placeholder="Give it a name..."
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1">Details / Notes</label>
-            <textarea
-              placeholder="What's this about? Write it down here..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={4}
-              className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none"
-            />
-          </div>
-
-          {type === 'learning' && (
-            <div className="space-y-2 animate-slide-up">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1 flex items-center gap-1.5">
-                <Link size={12} /> External Link (YouTube, Blog, etc.)
-              </label>
-              <input
-                type="text"
-                placeholder="https://..."
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all font-mono text-xs"
-              />
             </div>
-          )}
 
-          {/* Media Section */}
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider ml-1">Media</label>
-            
-            {!preview ? (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full border-2 border-dashed border-slate-800 rounded-2xl p-8 flex flex-col items-center justify-center gap-3 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all text-slate-500"
-              >
-                <div className="p-3 bg-slate-900 rounded-full">
-                  <Upload size={24} />
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-bold text-slate-300">Upload Image</p>
-                  <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">Maksimal 500KB (Base64 Mode)</p>
-                </div>
-              </button>
-            ) : (
-              <div className="relative group rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 cursor-zoom-in">
-                <img 
-                  src={preview} 
-                  alt="Upload Preview" 
-                  className="w-full h-48 object-cover opacity-80" 
-                  onClick={() => setIsZoomed(true)}
-                />
-                <div className="absolute top-2 right-2 flex gap-2">
-                   <button 
-                     onClick={() => setIsZoomed(true)}
-                     className="p-2 bg-black/60 rounded-lg text-white hover:bg-black/80 transition-colors"
-                   >
-                     <Upload size={14} className="rotate-45" />
-                   </button>
-                </div>
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                   <p className="text-[10px] font-bold text-white uppercase tracking-widest">Click to Zoom</p>
-                </div>
-                <div className="p-3 absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent">
-                  <button 
-                    onClick={() => { setPreview(null); setImage(null); setCurrentImageUrl(''); }} 
-                    className="flex items-center gap-1.5 text-red-400 text-[10px] font-black uppercase tracking-wider"
+            {/* Type selector */}
+            <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60 mb-5">
+              {[
+                { key: 'note', label: 'Sticky Note', icon: StickyNote },
+                { key: 'idea', label: 'Idea', icon: Lightbulb },
+                { key: 'learning', label: 'Learning', icon: Library },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isSel = type === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setType(tab.key)}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                      isSel
+                        ? 'bg-amber-400 text-slate-900 font-extrabold shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
                   >
-                    <Trash2 size={12} /> Remove
+                    <Icon size={14} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="e.g. BrandBook Identity Guidelines"
+                  className="w-full h-11 px-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Note Content
+                </label>
+                <textarea
+                  rows={4}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Write your note, checklist, or summary..."
+                  className="w-full p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40 resize-none"
+                />
+              </div>
+
+              {/* Voice Note Recorder */}
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center">
+                      <Mic size={14} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block">
+                        Voice Memo
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {isRecording ? `Recording... ${formatDuration(recordingDuration)}` : audioUrl ? 'Voice note recorded' : 'Record voice memo'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {isRecording ? (
+                    <button
+                      type="button"
+                      onClick={stopRecording}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 text-white text-xs font-bold animate-pulse"
+                    >
+                      <Square size={12} />
+                      <span>Stop</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={startRecording}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-colors"
+                    >
+                      <Mic size={12} />
+                      <span>{audioUrl ? 'Record Again' : 'Record'}</span>
+                    </button>
+                  )}
+                </div>
+
+                {audioUrl && (
+                  <div className="mt-3 pt-2 border-t border-amber-500/20 flex items-center justify-between gap-2">
+                    <audio controls src={audioUrl} className="h-8 w-full rounded-lg" />
+                    <button
+                      type="button"
+                      onClick={() => setAudioUrl(null)}
+                      className="p-1.5 rounded-lg text-red-500 hover:bg-red-500/10"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Image & URL Attachment */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Image Upload */}
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    Image Attachment
+                  </label>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full h-11 px-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center justify-center gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    <Image size={14} />
+                    <span>{preview ? 'Change Image' : 'Attach Image'}</span>
                   </button>
                 </div>
-              </div>
-            )}
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-          </div>
-        </div>
 
-        {/* Full Screen Zoom Overlay */}
-        {isZoomed && (
-          <div 
-            className="fixed inset-0 z-[1100] bg-black/95 flex items-center justify-center p-4 lg:p-12 animate-fade-in cursor-zoom-out"
-            onClick={() => setIsZoomed(false)}
-          >
-            <img 
-              src={preview} 
-              alt="Full Preview" 
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-scale-up" 
-            />
-            <button className="absolute top-10 right-10 p-3 bg-white/10 rounded-full text-white">
-              <X size={24} />
-            </button>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="p-6 bg-slate-900/80 border-t border-slate-800 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-4 px-6 rounded-2xl font-bold text-slate-400 hover:bg-slate-800 transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={uploading || !title.trim()}
-            className="flex-[2] py-4 px-6 rounded-2xl font-bold text-white shadow-xl shadow-blue-900/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ 
-              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-              boxShadow: '0 8px 24px rgba(37, 99, 235, 0.3)'
-            }}
-          >
-            {uploading ? (
-              <div className="flex flex-col items-center gap-1 w-full">
-                <div className="flex items-center gap-2">
-                  <Loader2 size={18} className="animate-spin" />
-                  <span className="text-sm font-bold">{progress < 100 ? `Uploading ${progress}%` : 'Finalizing...'}</span>
-                </div>
-                <div className="w-full h-1 bg-white/10 rounded-full mt-1 overflow-hidden">
-                   <div className="h-full bg-white transition-all duration-300" style={{ width: `${progress}%` }} />
+                {/* External Link */}
+                <div>
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                    Resource Link
+                  </label>
+                  <input
+                    type="url"
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full h-11 px-3 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                  />
                 </div>
               </div>
-            ) : (
-              <>{activity ? 'Update Item' : 'Save to Vault'}</>
-            )}
-          </button>
+
+              {/* Image Preview thumbnail */}
+              {preview && (
+                <div className="relative rounded-2xl overflow-hidden h-28 border border-slate-200 dark:border-slate-700">
+                  <img src={preview} alt="Preview" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setPreview(null)}
+                    className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2.5 rounded-2xl text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+                >
+                  <Sparkles size={14} />
+                  <span>{initialData ? 'Update Note' : 'Save Note'}</span>
+                </button>
+              </div>
+            </form>
+          </motion.div>
         </div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

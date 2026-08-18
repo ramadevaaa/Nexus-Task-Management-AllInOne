@@ -2,14 +2,14 @@ import { useState, useMemo, lazy, Suspense, useEffect, useRef } from 'react';
 import { useTasks } from '../hooks/useTasks';
 import {
   Plus, Trash2, ExternalLink, X, Pencil,
-  StickyNote, Lightbulb, Library, Search
+  StickyNote, Lightbulb, Library, Search, Play, Pause
 } from 'lucide-react';
 
 // Lazy load modals
 const VaultModal = lazy(() => import('../components/VaultModal'));
 
 const VAULT_TABS = [
-  { key: 'all', label: 'All' },
+  { key: 'all', label: 'All Items' },
   { key: 'note', label: 'Notes' },
   { key: 'idea', label: 'Ideas' },
   { key: 'learning', label: 'Learning' },
@@ -28,7 +28,7 @@ const renderTextWithLinks = (text) => {
           href={part}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-indigo-400 hover:text-indigo-300 underline underline-offset-2 break-all decoration-indigo-500/30"
+          className="text-blue-500 hover:text-blue-600 underline underline-offset-2 break-all"
           onClick={(e) => e.stopPropagation()}
         >
           {part}
@@ -42,100 +42,112 @@ const renderTextWithLinks = (text) => {
 const VaultCard = ({ item, openEditModal, deleteTask }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
-  const textRef = useRef(null);
-  const [isTruncated, setIsTruncated] = useState(false);
-
-  useEffect(() => {
-    if (textRef.current) {
-      const check = () => {
-        if (textRef.current) {
-          setIsTruncated(textRef.current.scrollHeight > textRef.current.clientHeight);
-        }
-      };
-      check();
-      window.addEventListener('resize', check);
-      return () => window.removeEventListener('resize', check);
-    }
-  }, [item.content]);
+  const isYellowNote = item.vaultType === 'note';
 
   return (
-    <div className="group relative bg-[var(--bg-deep)] border border-[var(--border-soft)] rounded-2xl overflow-hidden hover:border-indigo-500/30 transition-all h-fit">
-
-      {/* Actions */}
-      <div className="absolute top-3.5 right-3.5 flex gap-2 z-20 sm:opacity-0 group-hover:opacity-100 transition-all duration-300">
+    <div
+      className={`p-6 rounded-3xl transition-all duration-200 group relative flex flex-col justify-between ${
+        isYellowNote
+          ? 'bento-card-yellow'
+          : 'bento-card bg-white dark:bg-[#121620]'
+      }`}
+    >
+      {/* Actions Overlay */}
+      <div className="absolute top-4 right-4 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-20">
         <button
           onClick={(e) => { e.stopPropagation(); openEditModal(item); }}
-          className="p-2 bg-white/10 backdrop-blur-md border border-white/20 text-blue-400 hover:bg-blue-400 hover:text-white rounded-xl transition-all shadow-lg"
+          className="p-2 rounded-xl bg-black/10 hover:bg-black/20 text-slate-800 dark:text-slate-200 transition-all backdrop-blur-sm"
+          title="Edit"
         >
-          <Pencil size={14} />
+          <Pencil size={13} />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); deleteTask(item.id); }}
-          className="p-2 bg-white/10 backdrop-blur-md border border-white/20 text-red-400 hover:bg-red-400 hover:text-white rounded-xl transition-all shadow-lg"
+          className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-all backdrop-blur-sm"
+          title="Delete"
         >
-          <Trash2 size={14} />
+          <Trash2 size={13} />
         </button>
       </div>
 
-      {item.imageUrl && (
-        <div className="h-48 overflow-hidden cursor-zoom-in" onClick={() => setIsZoomed(true)}>
-          <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-          <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-all" />
-        </div>
-      )}
-
-      <div className="p-5">
-        <div className="flex justify-between items-start gap-2 mb-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl flex-shrink-0">
-              {item.vaultType === 'idea' ? <Lightbulb size={18} /> : item.vaultType === 'learning' ? <Library size={18} /> : <StickyNote size={18} />}
-            </span>
-            <h4 className="font-bold text-base break-words text-[var(--text-main)] leading-tight flex-1">{item.title}</h4>
+      <div>
+        {/* Top Tag & Icon */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-xl bg-black/10 flex items-center justify-center shrink-0">
+            {item.vaultType === 'idea' ? (
+              <Lightbulb size={16} />
+            ) : item.vaultType === 'learning' ? (
+              <Library size={16} />
+            ) : (
+              <StickyNote size={16} />
+            )}
           </div>
+          <span className="text-xs font-bold uppercase tracking-wider opacity-70">
+            {item.vaultType || 'Note'}
+          </span>
         </div>
 
-        <div className="relative">
-          <p
-            ref={textRef}
-            className={`text-xs text-[var(--text-muted)] leading-relaxed whitespace-pre-wrap transition-all duration-300 ${isExpanded ? '' : 'line-clamp-4'}`}
+        {/* Title */}
+        <h3 className="font-bold text-base mb-2 leading-tight">
+          {item.title}
+        </h3>
+
+        {/* Image Preview */}
+        {item.imageUrl && (
+          <div
+            className="h-36 rounded-2xl overflow-hidden mb-3 cursor-zoom-in relative"
+            onClick={() => setIsZoomed(true)}
           >
+            <img
+              src={item.imageUrl}
+              alt=""
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+          </div>
+        )}
+
+        {/* Text Content */}
+        <div className="text-xs leading-relaxed opacity-90 whitespace-pre-wrap font-medium">
+          <p className={isExpanded ? '' : 'line-clamp-4'}>
             {renderTextWithLinks(item.content)}
           </p>
-          {(isTruncated || isExpanded) && (
+          {item.content && item.content.length > 120 && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="mt-3 px-3.5 py-1.5 bg-indigo-500/5 hover:bg-indigo-500/10 rounded-lg text-[10px] font-extrabold text-indigo-400 transition-all border border-indigo-500/10 uppercase tracking-wide"
+              className="mt-2 text-[11px] font-bold underline opacity-80 hover:opacity-100"
             >
-              {isExpanded ? 'Show Less ↑' : 'Read More ↓'}
+              {isExpanded ? 'Show less' : 'Read more'}
             </button>
           )}
         </div>
-
-        {item.url && (
-          <a 
-            href={item.url} 
-            target="_blank" 
-            rel="noreferrer" 
-            className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 bg-slate-800/50 rounded-lg text-[10px] font-bold text-indigo-400 hover:bg-slate-800 transition-all border border-slate-700/50"
-          >
-            Open Resource <ExternalLink size={11} />
-          </a>
-        )}
       </div>
 
-      {/* Full Screen Image Zoom */}
+      {/* Footer Resource Link */}
+      {item.url && (
+        <a
+          href={item.url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-xl bg-black/5 hover:bg-black/10 text-[11px] font-bold transition-all w-fit"
+        >
+          <span>Open Resource</span>
+          <ExternalLink size={11} />
+        </a>
+      )}
+
+      {/* Fullscreen Zoom */}
       {isZoomed && (
         <div
-          className="fixed inset-0 z-[1200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 lg:p-12 animate-fade-in cursor-zoom-out"
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
           onClick={() => setIsZoomed(false)}
         >
           <img
             src={item.imageUrl}
             alt="Full Preview"
-            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-scale-up"
+            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
           />
-          <button className="absolute top-10 right-10 p-3 bg-white/10 rounded-full text-white hover:bg-white/20 transition-all">
-            <X size={24} />
+          <button className="absolute top-6 right-6 p-3 rounded-full bg-white/20 text-white">
+            <X size={20} />
           </button>
         </div>
       )}
@@ -145,29 +157,31 @@ const VaultCard = ({ item, openEditModal, deleteTask }) => {
 
 export default function VaultPage() {
   const { activities, loading, addActivity, updateActivity, deleteTask } = useTasks();
-  const [vaultActiveTab, setVaultActiveTab] = useState('all');
-  const [vaultSearch, setVaultSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
+  const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
 
-  const vaultItems = useMemo(() =>
-    (activities || []).filter(a => a.type === 'vault'),
-    [activities]
-  );
+  const vaultItems = useMemo(() => {
+    return (activities || []).filter(a => a.type === 'vault');
+  }, [activities]);
 
-  const filteredVault = useMemo(() => {
-    let items = vaultItems;
-    if (vaultActiveTab !== 'all') {
-      items = items.filter(v => v.vaultType === vaultActiveTab);
+  const filteredItems = useMemo(() => {
+    let list = vaultItems;
+    if (activeTab !== 'all') {
+      list = list.filter(i => i.vaultType === activeTab);
     }
-    if (!vaultSearch) return items;
-    return items.filter(v =>
-      v.title?.toLowerCase().includes(vaultSearch.toLowerCase()) ||
-      v.content?.toLowerCase().includes(vaultSearch.toLowerCase())
-    );
-  }, [vaultItems, vaultSearch, vaultActiveTab]);
+    if (search) {
+      list = list.filter(i =>
+        i.title?.toLowerCase().includes(search.toLowerCase()) ||
+        i.content?.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+    return list;
+  }, [vaultItems, activeTab, search]);
 
-  const handleSaveActivity = async (data, id) => {
+  const handleSave = async (data, id) => {
+    data.type = 'vault';
     if (id) {
       await updateActivity(id, data);
     } else {
@@ -175,109 +189,97 @@ export default function VaultPage() {
     }
   };
 
-  const openEditModal = (item) => {
-    setEditTarget(item);
-    setIsModalOpen(true);
-  };
-
-  const card = { backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '18px', boxShadow: 'var(--shadow-card)' };
-
   return (
-    <div className="max-w-[1200px] mx-auto animate-fade-in p-2 sm:p-4">
-      <div style={{ ...card, padding: '24px', minHeight: 'calc(100vh - 140px)', display: 'flex', flexDirection: 'column' }}>
-        
-        {/* Header */}
-        <div className="flex justify-between items-center mb-5 pb-4 border-b border-[var(--border)]">
-          <div>
-            <h1 className="flex items-center gap-2.5 text-[var(--text-main)] font-extrabold text-24px letter-spacing-[-0.5px]">
-              <span className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl flex-shrink-0"><Library size={24} /></span>
-              Knowledge Vault
-            </h1>
-            <p className="text-[var(--text-muted)] text-13px mt-1">Capture snippets, research, thoughts, and references.</p>
-          </div>
-          <button 
-            onClick={() => { setEditTarget(null); setIsModalOpen(true); }} 
-            className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/30 transition-all"
-          >
-            New Entry
-          </button>
+    <div className="space-y-6 pb-12 animate-fade-in max-w-[1440px] mx-auto">
+      {/* ── TOP HEADER ── */}
+      <div className="bento-card p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-[#121620]">
+        <div>
+          <span className="text-xs font-semibold text-slate-400 block mb-0.5">
+            Knowledge Vault & Sticky Notes
+          </span>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Vault
+          </h1>
         </div>
 
-        {/* Search bar */}
-        <div className="relative mb-5 flex-shrink-0">
-          <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none text-[var(--text-muted)]">
-            <Search size={18} />
-          </div>
-          <input
-            type="text"
-            placeholder="Search ideas, notes, or resources..."
-            value={vaultSearch}
-            onChange={(e) => setVaultSearch(e.target.value)}
-            className="w-full pl-11 pr-10 py-3 rounded-xl bg-[var(--bg-deep)] text-[var(--text-main)] placeholder-[var(--text-faint)] border border-[var(--border-soft)] focus:outline-none focus:border-indigo-500/50 text-sm transition-all"
-          />
-          {vaultSearch && (
-            <button 
-              onClick={() => setVaultSearch('')}
-              className="absolute inset-y-0 right-3.5 flex items-center text-[var(--text-faint)] hover:text-[var(--text-muted)]"
-            >
-              <X size={18} />
-            </button>
-          )}
-        </div>
+        <button
+          onClick={() => { setEditTarget(null); setIsModalOpen(true); }}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white text-xs font-bold shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+        >
+          <Plus size={15} />
+          <span>New Note / Idea</span>
+        </button>
+      </div>
 
-        {/* Filters */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
-          {VAULT_TABS.map(tab => (
-            <button 
-              key={tab.key} 
-              onClick={() => setVaultActiveTab(tab.key)} 
-              className="whitespace-nowrap px-4 py-2 rounded-xl text-xs font-semibold transition-all border"
-              style={vaultActiveTab === tab.key 
-                ? { background: 'rgba(99,102,241,0.15)', color: '#818cf8', borderColor: 'rgba(99,102,241,0.3)' } 
-                : { color: 'var(--text-muted)', borderColor: 'transparent' }}
+      {/* ── FILTER TABS & SEARCH ── */}
+      <div className="bento-card p-4 flex flex-col sm:flex-row justify-between items-center gap-4 bg-white dark:bg-[#121620]">
+        <div className="flex items-center gap-1 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0 scrollbar-hide">
+          {VAULT_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                activeTab === tab.key
+                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
             >
               {tab.label}
             </button>
           ))}
         </div>
 
-        {/* Grid container */}
-        <div className="flex-1 overflow-y-auto pr-1">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-60 gap-3">
-              <div className="w-9 h-9 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />
-              <span className="text-xs text-[var(--text-muted)]">Decrypting Knowledge...</span>
-            </div>
-          ) : filteredVault.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-[var(--border-soft)] rounded-2xl opacity-60">
-              <div className="text-4xl mb-3">🧠</div>
-              <p className="text-sm font-bold text-[var(--text-main)]">No records found</p>
-              <p className="text-xs text-[var(--text-muted)] mt-1">Start depositing your intellectual capital.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-start">
-              {filteredVault.map(item => (
-                <VaultCard
-                  key={item.id}
-                  item={item}
-                  openEditModal={openEditModal}
-                  deleteTask={deleteTask}
-                />
-              ))}
-            </div>
-          )}
+        <div className="relative w-full sm:w-64">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search vault..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full h-10 pl-9 pr-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/60 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+          />
         </div>
-
       </div>
 
-      {/* Modals */}
+      {/* ── BENTO MASONRY GRID ── */}
+      {filteredItems.length === 0 ? (
+        <div className="bento-card p-12 text-center bg-white dark:bg-[#121620]">
+          <span className="text-4xl block mb-2">💡</span>
+          <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">
+            Vault is empty
+          </h3>
+          <p className="text-xs text-slate-400 mb-4">
+            Capture thoughts, ideas, voice notes, and learning resources.
+          </p>
+          <button
+            onClick={() => { setEditTarget(null); setIsModalOpen(true); }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-amber-500 text-white text-xs font-bold"
+          >
+            <Plus size={14} />
+            <span>Create First Note</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filteredItems.map((item) => (
+            <VaultCard
+              key={item.id}
+              item={item}
+              openEditModal={(target) => { setEditTarget(target); setIsModalOpen(true); }}
+              deleteTask={deleteTask}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Modal */}
       <Suspense fallback={null}>
         {isModalOpen && (
           <VaultModal
             isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
-            onSave={handleSaveActivity}
-            activity={editTarget}
+            onClose={() => { setIsModalOpen(false); setEditTarget(null); }}
+            onSave={handleSave}
+            initialData={editTarget}
           />
         )}
       </Suspense>
